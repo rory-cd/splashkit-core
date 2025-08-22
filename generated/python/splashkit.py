@@ -3399,6 +3399,8 @@ sklib.__sklib__read_adc__adc_device__adc_pin.argtypes = [ c_void_p, c_int ]
 sklib.__sklib__read_adc__adc_device__adc_pin.restype = c_int
 sklib.__sklib__read_adc__string_ref__adc_pin.argtypes = [ _sklib_string, c_int ]
 sklib.__sklib__read_adc__string_ref__adc_pin.restype = c_int
+sklib.__sklib__gpio_pin_to_int__gpio_pin_value.argtypes = [ c_int ]
+sklib.__sklib__gpio_pin_to_int__gpio_pin_value.restype = c_int
 sklib.__sklib__has_gpio.argtypes = [  ]
 sklib.__sklib__has_gpio.restype = c_int32
 sklib.__sklib__raspi_cleanup.argtypes = [  ]
@@ -3451,8 +3453,6 @@ sklib.__sklib__remote_raspi_set_pwm_range__connection__gpio_pin__int.argtypes = 
 sklib.__sklib__remote_raspi_set_pwm_range__connection__gpio_pin__int.restype = None
 sklib.__sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value.argtypes = [ c_void_p, c_int, c_int ]
 sklib.__sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value.restype = None
-sklib.__sklib__to_int__gpio_pin_value.argtypes = [ c_int ]
-sklib.__sklib__to_int__gpio_pin_value.restype = c_int
 sklib.__sklib__draw_quad__color__quad_ref.argtypes = [ _sklib_color, _sklib_quad ]
 sklib.__sklib__draw_quad__color__quad_ref.restype = None
 sklib.__sklib__draw_quad__color__quad_ref__drawing_options_ref.argtypes = [ _sklib_color, _sklib_quad, _sklib_drawing_options ]
@@ -8378,6 +8378,10 @@ def read_adc_named ( name, channel ):
     __skparam__channel = __skadapter__to_sklib_adc_pin(channel)
     __skreturn = sklib.__sklib__read_adc__string_ref__adc_pin(__skparam__name, __skparam__channel)
     return __skadapter__to_int(__skreturn)
+def gpio_pin_to_int ( value ):
+    __skparam__value = __skadapter__to_sklib_gpio_pin_value(value)
+    __skreturn = sklib.__sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value)
+    return __skadapter__to_int(__skreturn)
 def has_gpio (  ):
     __skreturn = sklib.__sklib__has_gpio()
     return __skadapter__to_bool(__skreturn)
@@ -8493,10 +8497,6 @@ def remote_raspi_write ( pi, pin, value ):
     __skparam__pin = __skadapter__to_sklib_gpio_pin(pin)
     __skparam__value = __skadapter__to_sklib_gpio_pin_value(value)
     sklib.__sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__skparam__pi, __skparam__pin, __skparam__value)
-def to_int ( value ):
-    __skparam__value = __skadapter__to_sklib_gpio_pin_value(value)
-    __skreturn = sklib.__sklib__to_int__gpio_pin_value(__skparam__value)
-    return __skadapter__to_int(__skreturn)
 def draw_quad ( clr, q ):
     __skparam__clr = __skadapter__to_sklib_color(clr)
     __skparam__q = __skadapter__to_sklib_quad(q)

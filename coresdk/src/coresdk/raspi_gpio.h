@@ -293,6 +293,6 @@ namespace splashkit_lib
      * @param value  The pin to read the value from.
      * @returns      The pin value as an integer.
      */
-    int to_int(gpio_pin_value value);
+    int gpio_pin_to_int(gpio_pin_value value);
 }
 #endif /* raspi_gpio_hpp */

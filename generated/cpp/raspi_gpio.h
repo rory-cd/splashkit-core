@@ -15,6 +15,7 @@
 using std::string;
 using std::vector;
 
+int gpio_pin_to_int(gpio_pin_value value);
 bool has_gpio();
 void raspi_cleanup();
 gpio_pin_mode raspi_get_mode(gpio_pin pin);
@@ -41,6 +42,5 @@ void remote_raspi_set_pwm_dutycycle(connection pi, gpio_pin pin, int dutycycle);
 void remote_raspi_set_pwm_frequency(connection pi, gpio_pin pin, int frequency);
 void remote_raspi_set_pwm_range(connection pi, gpio_pin pin, int range);
 void remote_raspi_write(connection pi, gpio_pin pin, gpio_pin_value value);
-int to_int(gpio_pin_value value);
 
 #endif /* __raspi_gpio_h */

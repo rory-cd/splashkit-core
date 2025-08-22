@@ -3742,6 +3742,9 @@ namespace SplashKitSDK
     [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__read_adc__string_ref__adc_pin", CharSet=CharSet.Ansi)]
     private static extern int __sklib__read_adc__string_ref__adc_pin(__sklib_string name, int channel);
 
+    [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__gpio_pin_to_int__gpio_pin_value", CharSet=CharSet.Ansi)]
+    private static extern int __sklib__gpio_pin_to_int__gpio_pin_value(int value);
+
     [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__has_gpio", CharSet=CharSet.Ansi)]
     private static extern int __sklib__has_gpio();
 
@@ -3819,9 +3822,6 @@ namespace SplashKitSDK
 
     [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value", CharSet=CharSet.Ansi)]
     private static extern void __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__sklib_ptr pi, int pin, int value);
-
-    [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__to_int__gpio_pin_value", CharSet=CharSet.Ansi)]
-    private static extern int __sklib__to_int__gpio_pin_value(int value);
 
     [DllImport("SplashKit", CallingConvention=CallingConvention.Cdecl, EntryPoint="__sklib__draw_quad__color__quad_ref", CharSet=CharSet.Ansi)]
     private static extern void __sklib__draw_quad__color__quad_ref(__sklib_color clr, __sklib_quad q);
@@ -18220,6 +18220,19 @@ namespace SplashKitSDK
       return __skadapter__to_int(__skreturn);
     }
     /// <summary>
+    /// Converts the specified pin value to an integer, to use in calculations.
+    /// </summary>
+    /// <param name="value"> The pin to read the value from.</param>
+    /// <returns>The pin value as an integer.</returns>
+    public static int GpioPinToInt(GpioPinValue value)
+    {
+      int __skparam__value;
+      int __skreturn;
+      __skparam__value = __skadapter__to_sklib_gpio_pin_value(value);
+      __skreturn = __sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value);
+      return __skadapter__to_int(__skreturn);
+    }
+    /// <summary>
     /// Checks if the system has GPIO capabilities.
     /// </summary>
     /// <returns>true if the system has GPIO capabilities, false otherwise.</returns>
@@ -18590,19 +18603,6 @@ namespace SplashKitSDK
       __skparam__pin = __skadapter__to_sklib_gpio_pin(pin);
       __skparam__value = __skadapter__to_sklib_gpio_pin_value(value);
       __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__skparam__pi, __skparam__pin, __skparam__value);
-    }
-    /// <summary>
-    /// Converts the specified pin value to an integer, to use in calculations.
-    /// </summary>
-    /// <param name="value"> The pin to read the value from.</param>
-    /// <returns>The pin value as an integer.</returns>
-    public static int ToInt(GpioPinValue value)
-    {
-      int __skparam__value;
-      int __skreturn;
-      __skparam__value = __skadapter__to_sklib_gpio_pin_value(value);
-      __skreturn = __sklib__to_int__gpio_pin_value(__skparam__value);
-      return __skadapter__to_int(__skreturn);
     }
     /// <summary>
     /// Draw a quad to the current window.

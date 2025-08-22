@@ -4592,7 +4592,7 @@
     "group": "graphics",
     "brief": null,
     "description": null,
-    "parsed_at": 1753421300,
+    "parsed_at": 1755863744,
     "path": "coresdk/src/coresdk/circle_drawing.h",
     "functions": [
       {
@@ -44312,7 +44312,7 @@
     "group": "raspberry",
     "brief": "Provides support for using an ADC device with the GPIO pins on the Raspberry Pi.",
     "description": null,
-    "parsed_at": 1754282148,
+    "parsed_at": 1755863745,
     "path": "coresdk/src/coresdk/raspi_adc.h",
     "functions": [
       {
@@ -44760,9 +44760,46 @@
     "group": "raspberry",
     "brief": "Splashkit allows you to read and write to the GPIO pins on the Raspberry Pi.",
     "description": null,
-    "parsed_at": 1753421319,
+    "parsed_at": 1755863866,
     "path": "coresdk/src/coresdk/raspi_gpio.h",
     "functions": [
+      {
+        "signature": "int gpio_pin_to_int(gpio_pin_value value);",
+        "name": "gpio_pin_to_int",
+        "method_name": null,
+        "unique_global_name": "gpio_pin_to_int",
+        "unique_method_name": null,
+        "suffix_name": null,
+        "description": "Converts the specified pin value to an integer, to use in calculations.",
+        "brief": "Converts a GPIO Pin Value to an integer.",
+        "return": {
+          "type": "int",
+          "description": "The pin value as an integer.",
+          "is_pointer": false,
+          "is_reference": false,
+          "is_vector": false,
+          "type_parameter": null
+        },
+        "parameters": {
+          "value": {
+            "type": "gpio_pin_value",
+            "description": "The pin to read the value from.",
+            "is_pointer": false,
+            "is_const": false,
+            "is_reference": false,
+            "is_array": false,
+            "array_dimension_sizes": [
+
+            ],
+            "is_vector": false,
+            "type_parameter": null
+          }
+        },
+        "attributes": {
+          "group": "raspberry",
+          "static": "raspberry"
+        }
+      },
       {
         "signature": "bool has_gpio();",
         "name": "has_gpio",
@@ -46034,43 +46071,6 @@
           "value": {
             "type": "gpio_pin_value",
             "description": "The value to write to the pin.",
-            "is_pointer": false,
-            "is_const": false,
-            "is_reference": false,
-            "is_array": false,
-            "array_dimension_sizes": [
-
-            ],
-            "is_vector": false,
-            "type_parameter": null
-          }
-        },
-        "attributes": {
-          "group": "raspberry",
-          "static": "raspberry"
-        }
-      },
-      {
-        "signature": "int to_int(gpio_pin_value value);",
-        "name": "to_int",
-        "method_name": null,
-        "unique_global_name": "to_int",
-        "unique_method_name": null,
-        "suffix_name": null,
-        "description": "Converts the specified pin value to an integer, to use in calculations.",
-        "brief": "Converts a GPIO Pin Value to an integer.",
-        "return": {
-          "type": "int",
-          "description": "The pin value as an integer.",
-          "is_pointer": false,
-          "is_reference": false,
-          "is_vector": false,
-          "type_parameter": null
-        },
-        "parameters": {
-          "value": {
-            "type": "gpio_pin_value",
-            "description": "The pin to read the value from.",
             "is_pointer": false,
             "is_const": false,
             "is_reference": false,
@@ -65902,7 +65902,7 @@
     "group": "types",
     "brief": "SplashKit Types simplifies data type creation and management for streamlined programming.",
     "description": null,
-    "parsed_at": 1754282149,
+    "parsed_at": 1755863746,
     "path": "coresdk/src/coresdk/types.h",
     "functions": [
 

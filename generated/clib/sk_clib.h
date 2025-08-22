@@ -1071,6 +1071,7 @@ __sklib_adc_device __sklib__open_adc__string_ref__adc_type(const __sklib_string 
 __sklib_adc_device __sklib__open_adc__string_ref__int__int__adc_type(const __sklib_string name, int bus, int address, int type);
 int __sklib__read_adc__adc_device__adc_pin(__sklib_adc_device adc, int channel);
 int __sklib__read_adc__string_ref__adc_pin(const __sklib_string name, int channel);
+int __sklib__gpio_pin_to_int__gpio_pin_value(int value);
 int __sklib__has_gpio();
 void __sklib__raspi_cleanup();
 int __sklib__raspi_get_mode__gpio_pin(int pin);
@@ -1097,7 +1098,6 @@ void __sklib__remote_raspi_set_pwm_dutycycle__connection__gpio_pin__int(__sklib_
 void __sklib__remote_raspi_set_pwm_frequency__connection__gpio_pin__int(__sklib_connection pi, int pin, int frequency);
 void __sklib__remote_raspi_set_pwm_range__connection__gpio_pin__int(__sklib_connection pi, int pin, int range);
 void __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__sklib_connection pi, int pin, int value);
-int __sklib__to_int__gpio_pin_value(int value);
 void __sklib__draw_quad__color__quad_ref(__sklib_color clr, const __sklib_quad q);
 void __sklib__draw_quad__color__quad_ref__drawing_options_ref(__sklib_color clr, const __sklib_quad q, const __sklib_drawing_options opts);
 void __sklib__draw_quad_on_bitmap__bitmap__color__quad_ref(__sklib_bitmap destination, __sklib_color clr, const __sklib_quad q);

@@ -5097,6 +5097,11 @@ int read_adc(const string &name, adc_pin channel) {
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_int(__skreturn);
 }
+int gpio_pin_to_int(gpio_pin_value value) {
+    int __skparam__value = __skadapter__to_int(value);
+    int __skreturn = __sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value);
+    return __skadapter__to_int(__skreturn);
+}
 bool has_gpio() {
     int __skreturn = __sklib__has_gpio();
     return __skadapter__to_bool(__skreturn);
@@ -5240,11 +5245,6 @@ void remote_raspi_write(connection pi, gpio_pin pin, gpio_pin_value value) {
     int __skparam__pin = __skadapter__to_int(pin);
     int __skparam__value = __skadapter__to_int(value);
     __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__skparam__pi, __skparam__pin, __skparam__value);
-}
-int to_int(gpio_pin_value value) {
-    int __skparam__value = __skadapter__to_int(value);
-    int __skreturn = __sklib__to_int__gpio_pin_value(__skparam__value);
-    return __skadapter__to_int(__skreturn);
 }
 void draw_quad(color clr, const quad &q) {
     __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);

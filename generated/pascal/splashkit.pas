@@ -1338,6 +1338,7 @@ function OpenAdc(const name: String; type: AdcType): AdcDevice;
 function OpenAdc(const name: String; bus: Integer; address: Integer; type: AdcType): AdcDevice;
 function ReadAdc(adc: AdcDevice; channel: AdcPin): Integer;
 function ReadAdc(const name: String; channel: AdcPin): Integer;
+function GpioPinToInt(value: GpioPinValue): Integer;
 function HasGpio(): Boolean;
 procedure RaspiCleanup();
 function RaspiGetMode(pin: GpioPin): GpioPinMode;
@@ -1364,7 +1365,6 @@ procedure RemoteRaspiSetPwmDutycycle(pi: Connection; pin: GpioPin; dutycycle: In
 procedure RemoteRaspiSetPwmFrequency(pi: Connection; pin: GpioPin; frequency: Integer);
 procedure RemoteRaspiSetPwmRange(pi: Connection; pin: GpioPin; range: Integer);
 procedure RemoteRaspiWrite(pi: Connection; pin: GpioPin; value: GpioPinValue);
-function ToInt(value: GpioPinValue): Integer;
 procedure DrawQuad(clr: Color; const q: Quad);
 procedure DrawQuad(clr: Color; const q: Quad; const opts: DrawingOptions);
 procedure DrawQuadOnBitmap(destination: Bitmap; clr: Color; const q: Quad);
@@ -3886,6 +3886,7 @@ function __sklib__open_adc__string_ref__adc_type(const name: __sklib_string; typ
 function __sklib__open_adc__string_ref__int__int__adc_type(const name: __sklib_string; bus: Integer; address: Integer; type: LongInt): __sklib_ptr; cdecl; external;
 function __sklib__read_adc__adc_device__adc_pin(adc: __sklib_ptr; channel: LongInt): Integer; cdecl; external;
 function __sklib__read_adc__string_ref__adc_pin(const name: __sklib_string; channel: LongInt): Integer; cdecl; external;
+function __sklib__gpio_pin_to_int__gpio_pin_value(value: LongInt): Integer; cdecl; external;
 function __sklib__has_gpio(): LongInt; cdecl; external;
 procedure __sklib__raspi_cleanup(); cdecl; external;
 function __sklib__raspi_get_mode__gpio_pin(pin: LongInt): LongInt; cdecl; external;
@@ -3912,7 +3913,6 @@ procedure __sklib__remote_raspi_set_pwm_dutycycle__connection__gpio_pin__int(pi:
 procedure __sklib__remote_raspi_set_pwm_frequency__connection__gpio_pin__int(pi: __sklib_ptr; pin: LongInt; frequency: Integer); cdecl; external;
 procedure __sklib__remote_raspi_set_pwm_range__connection__gpio_pin__int(pi: __sklib_ptr; pin: LongInt; range: Integer); cdecl; external;
 procedure __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(pi: __sklib_ptr; pin: LongInt; value: LongInt); cdecl; external;
-function __sklib__to_int__gpio_pin_value(value: LongInt): Integer; cdecl; external;
 procedure __sklib__draw_quad__color__quad_ref(clr: __sklib_color; const q: __sklib_quad); cdecl; external;
 procedure __sklib__draw_quad__color__quad_ref__drawing_options_ref(clr: __sklib_color; const q: __sklib_quad; const opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__draw_quad_on_bitmap__bitmap__color__quad_ref(destination: __sklib_ptr; clr: __sklib_color; const q: __sklib_quad); cdecl; external;
@@ -13194,6 +13194,15 @@ begin
   __skreturn := __sklib__read_adc__string_ref__adc_pin(__skparam__name, __skparam__channel);
   result := __skadapter__to_int(__skreturn);
 end;
+function GpioPinToInt(value: GpioPinValue): Integer;
+var
+  __skparam__value: LongInt;
+  __skreturn: Integer;
+begin
+  __skparam__value := __skadapter__to_sklib_gpio_pin_value(value);
+  __skreturn := __sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value);
+  result := __skadapter__to_int(__skreturn);
+end;
 function HasGpio(): Boolean;
 var
   __skreturn: LongInt;
@@ -13446,15 +13455,6 @@ begin
   __skparam__pin := __skadapter__to_sklib_gpio_pin(pin);
   __skparam__value := __skadapter__to_sklib_gpio_pin_value(value);
   __sklib__remote_raspi_write__connection__gpio_pin__gpio_pin_value(__skparam__pi, __skparam__pin, __skparam__value);
-end;
-function ToInt(value: GpioPinValue): Integer;
-var
-  __skparam__value: LongInt;
-  __skreturn: Integer;
-begin
-  __skparam__value := __skadapter__to_sklib_gpio_pin_value(value);
-  __skreturn := __sklib__to_int__gpio_pin_value(__skparam__value);
-  result := __skadapter__to_int(__skreturn);
 end;
 procedure DrawQuad(clr: Color; const q: Quad);
 var
