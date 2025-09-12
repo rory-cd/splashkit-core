@@ -283,7 +283,7 @@ add_custom_command(TARGET sktest
 add_custom_command(TARGET sktest
     PRE_BUILD COMMAND
     ${CMAKE_COMMAND} -E copy_directory "${SK_SRC}/test/Resources/" $<TARGET_FILE_DIR:sktest>)
-#Note this is what has been changed for test fix
+#If MSYS is being used force sktest to be a console executable
 if (MSYS)
 	target_link_options(sktest PRIVATE -mconsole)
 endif()
