@@ -117,7 +117,7 @@ TEST_CASE("json can be created and read", "[json]")
 
         REQUIRE("#00ff00ff" == color_to_string(deserialized_clr));
     }
-    SECTION("json can be created and read with different number types")
+TEST_CASE("json can be created and read with different number types", "[json_read_number][json_read_number_as_double]")
     {
         json number_types = create_json();
 
