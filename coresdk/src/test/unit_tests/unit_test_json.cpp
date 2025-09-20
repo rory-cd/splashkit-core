@@ -121,8 +121,8 @@ TEST_CASE("json can be created and read with different number types", "[json_rea
     {
         json number_types = create_json();
 
-        json_set_number(number_types, "float", static_cast<float>(21.2));
-        json_set_number(number_types, "double", static_cast<double>(30.1));
+        json_set_number(number_types, "float", 21.2f);
+        json_set_number(number_types, "double", 30.1);
 
         REQUIRE_THAT(json_read_number(number_types, "float"), WithinRel(21.2f));
         REQUIRE_THAT(json_read_number_as_double(number_types, "double"), WithinRel(30.1));
