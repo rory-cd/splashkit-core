@@ -4,6 +4,8 @@
 
 #include "catch.hpp"
 
+#include <string>
+
 #include "types.h"
 #include "graphics.h"
 #include "resources.h"
@@ -127,4 +129,40 @@ TEST_CASE("bitmap bounding details can be retrieved", "[bitmap]")
         }
     }
     free_bitmap(bmp);
+}
+
+TEST_CASE("bitmap filename can be retrieved", "[bitmap_filename]")
+{
+    SECTION("returns correct filename for bitmap")
+    {
+        std::string expected_filename = "rocket_sprt.png";
+
+        // Load a bitmap
+        bitmap bmp = load_bitmap("rocket", expected_filename);
+        REQUIRE(bmp != nullptr);
+        REQUIRE(bitmap_valid(bmp));
+        
+        // Extract filename
+        std::string filepath = bitmap_filename(bmp);
+        size_t idx = filepath.size() - expected_filename.size();
+        std::string filename = filepath.substr(idx, expected_filename.size());
+
+        REQUIRE(filename == expected_filename);
+        free_bitmap(bmp);
+    }
+
+    SECTION("returns empty string for null bitmap")
+    {
+        bitmap null_bmp = nullptr;
+        std::string filepath = bitmap_filename(null_bmp);
+        REQUIRE(filepath == "");
+    }
+
+    SECTION("returns empty string for newly created bitmap")
+    {
+        bitmap created_bmp = create_bitmap("new bitmap", 100, 100);
+        std::string filepath = bitmap_filename(created_bmp);
+        REQUIRE(filepath == "");
+        free_bitmap(created_bmp);
+    }
 }
