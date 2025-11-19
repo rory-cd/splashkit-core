@@ -1,5 +1,5 @@
 //
-//  test_raspi_spi_led_matrix.cpp
+//  test_raspi_i2c_led_quad_14segment.cpp
 //  splashkit
 //
 //  Created by Olivia McKeon https://github.com/omckeon
@@ -199,13 +199,20 @@ void run_gpio_i2c_quad_14_seg_test()
         raspi_i2c_write(i2c_device, i, 0, 2);
     }
 
-    string text = "SKM.";
+    string message = "HELLO WORLD FROM SPLASHKIT";
+    string text = "    " + message + "    ";
 
-    for (int i = 0; i < 4; i++)
+    cout << "Starting text scrolling...\n";
+    delay(500);
+    
+    for (int i = 0; i < text.length() - 3; i++)
     {
-        raspi_i2c_write(i2c_device, i*2, alphafonttable[text[i]], 2);
+        for (int j = 0; j < 4; j++)
+        {
+            raspi_i2c_write(i2c_device, j * 2, alphafonttable[text[i + j]], 2);
+        }
+        delay(200);
     }
-    delay(5000);
 
     // Turn off LED device
     raspi_i2c_write(i2c_device, 0b00100000); // Turn off system oscillator

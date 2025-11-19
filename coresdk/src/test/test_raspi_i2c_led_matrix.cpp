@@ -1,5 +1,5 @@
 //
-//  test_raspi_spi_led_matrix.cpp
+//  test_raspi_i2c_led_matrix.cpp
 //  splashkit
 //
 //  Created by Olivia McKeon https://github.com/omckeon
