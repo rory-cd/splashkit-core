@@ -389,9 +389,7 @@ namespace splashkit_lib
             return spi_xfer(pi, handle, send_buf, recv_buf, count);
         }
         else
-        {
             return -1;
-        }
     }
 
     void sk_set_servo_pulsewidth(int pin, int pulsewidth)

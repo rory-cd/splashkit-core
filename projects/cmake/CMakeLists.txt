@@ -152,25 +152,25 @@ if (NOT APPLE AND NOT MSYS)
             # add_definitions(-DELPP_NO_DEFAULT_LOG_FILE)
             # Override LIB_FLAGS for Raspberry Pi to include pigpiod_if2
             set(LIB_FLAGS "-lSDL2 \
-                           -lSDL2_mixer \
-                           -lSDL2_ttf \
-                           -lSDL2_gfx \
-                           -lSDL2_image \
-                           -lSDL2_net \
-                           -lpthread \
-                           -lbz2 \
-                           -lFLAC \
-                           -lvorbis \
-                           -lz \
-                           -lpng16 \
-                           -lvorbisfile \
-                           -logg \
-                           -lwebp \
-                           -lfreetype \
-                           -lcurl \
-                           -ldl \
-                           -lstdc++fs \
-                           -lpigpiod_if2")
+                            -lSDL2_mixer \
+                            -lSDL2_ttf \
+                            -lSDL2_gfx \
+                            -lSDL2_image \
+                            -lSDL2_net \
+                            -lpthread \
+                            -lbz2 \
+                            -lFLAC \
+                            -lvorbis \
+                            -lz \
+                            -lpng16 \
+                            -lvorbisfile \
+                            -logg \
+                            -lwebp \
+                            -lfreetype \
+                            -lcurl \
+                            -ldl \
+                            -lstdc++fs \
+                            -lpigpiod_if2")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
         else()
             message(WARNING "-- Pigpio libraries NOT found. Some features may be unavailable.")
@@ -319,7 +319,7 @@ add_custom_command(
 
 # Discover and register Catch2 tests
 catch_discover_tests(skunit_tests)
-#### END sktest EXECUTABLE ####
+#### END skunit_tests EXECUTABLE ####
 
 install(TARGETS SplashKitBackend DESTINATION lib)
 install(FILES ${INCLUDE_FILES} DESTINATION include/SplashKitBackend)
