@@ -27,31 +27,3 @@ do
     # Remove the temporary directory
     rm -rf "${temp_dir}"
 done
-
-# TODO: Add the following comment lines to SplashKitSDK.csproj (with further testing)
-# <PlatformTarget>AnyCPU</PlatformTarget>
-
-# <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-#     <DebugType>portable</DebugType>
-# </PropertyGroup>
-
-# <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-#     <DebugType>portable</DebugType>
-# </PropertyGroup>
-
-# <ItemGroup>
-#     <Content Include=".\Libraries\win64\*.dll">
-#         <Pack>true</Pack>
-#         <PackagePath>lib\$(TargetFramework)</PackagePath>
-#         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-#         <PackageCopyToOutput>true</PackageCopyToOutput>
-#         <Link>%(FileName)%(Extension)</Link>
-#     </Content>
-#     <Content Include=".\Libraries\macos\libSplashKit.dylib">
-#         <Pack>true</Pack>
-#         <PackagePath>lib\$(TargetFramework)</PackagePath>
-#         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-#         <PackageCopyToOutput>true</PackageCopyToOutput>
-#         <Link>%(FileName)%(Extension)</Link>
-#     </Content>
-# </ItemGroup>
