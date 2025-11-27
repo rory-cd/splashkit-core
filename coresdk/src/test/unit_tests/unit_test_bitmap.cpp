@@ -177,4 +177,5 @@ TEST_CASE("can create and free a new bitmap", "[create_bitmap]")
         free_bitmap(bmp);
         REQUIRE_FALSE(bitmap_valid(bmp));
     }
+    free_bitmap(bmp);
 }
