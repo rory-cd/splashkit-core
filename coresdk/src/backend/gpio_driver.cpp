@@ -37,6 +37,21 @@ namespace splashkit_lib
             return true;
     }
 
+    bool check_pi(int pin)
+    {
+        if (check_pi())
+        {
+            // Checks whether the pins are in the correct range
+            if (pin < 0 || pin > 40)
+            {
+                LOG(ERROR) << sk_gpio_error_message(PI_BAD_GPIO);
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     // Initialize the GPIO library
     int sk_gpio_init()
     {
@@ -47,7 +62,7 @@ namespace splashkit_lib
     // Read the value of a GPIO pin
     int sk_gpio_read(int pin)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
             int result = gpio_read(pi, pin);
             if (result < 0)
@@ -65,8 +80,14 @@ namespace splashkit_lib
     // Write a value to a GPIO pin
     void sk_gpio_write(int pin, int value)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
+            // Checks if the value exists in the SplashKit library or not
+            if (value < -1 || value > 2)
+            {
+                LOG(ERROR) << sk_gpio_error_message(PI_BAD_GPIO);
+                return;
+            }
             int result = gpio_write(pi, pin, value);
             if (result < 0)
             {
@@ -78,8 +99,14 @@ namespace splashkit_lib
     // Set the mode of a GPIO pin
     void sk_gpio_set_mode(int pin, int mode)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
+            // Checks if the value exists in the SplashKit library or not
+            if (mode < 0 || mode > 7)
+            {
+                LOG(ERROR) << sk_gpio_error_message(PI_BAD_MODE);
+                return;
+            }
             int result = set_mode(pi, pin, mode);
             if (result < 0)
             {
@@ -88,9 +115,10 @@ namespace splashkit_lib
         }
     }
 
+    // Get the mode of a GPIO pin
     int sk_gpio_get_mode(int pin)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
             int result = get_mode(pi, pin);
             if (result < 0)
@@ -104,10 +132,17 @@ namespace splashkit_lib
             return PI_BAD_GPIO;
         }
     }
+
     void sk_gpio_set_pull_up_down(int pin, int pud)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
+            // Checks if the pud exists in the SplashKit library or not
+            if (pud < 0 || pud > 2)
+            {
+                LOG(ERROR) << sk_gpio_error_message(PI_BAD_PUD);
+                return;
+            }
             int result = set_pull_up_down(pi, pin, pud);
             if (result < 0)
             {
@@ -119,7 +154,7 @@ namespace splashkit_lib
     // PWM Functions
     void sk_set_pwm_range(int pin, int range)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
             int result = set_PWM_range(pi, pin, range);
             if (result < 0)
@@ -128,9 +163,11 @@ namespace splashkit_lib
             }
         }
     }
+
+    // Set frequency by setting both the range & clock
     void sk_set_pwm_frequency(int pin, int frequency)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
             int result = set_PWM_frequency(pi, pin, frequency);
             if (result < 0)
@@ -140,9 +177,10 @@ namespace splashkit_lib
         }
     }
 
+    // Value must not be more than range (0% to 100%)
     void sk_set_pwm_dutycycle(int pin, int dutycycle)
     {
-        if (check_pi())
+        if (check_pi(pin))
         {
             int result = set_PWM_dutycycle(pi, pin, dutycycle);
             if (result < 0)
@@ -161,14 +199,14 @@ namespace splashkit_lib
     }
 
     // I2C Functions
-    int sk_i2c_open(int bus, int address, int flags)
+    int sk_i2c_open(int bus, int address)
     {
         if (check_pi())
         {
-            int result = ::i2c_open(pi, bus, address, flags);
+            int result = ::i2c_open(pi, bus, address, 0);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "Failed to open I2C device at address " << address << "\n";
             }
             return result;
         }
@@ -177,6 +215,7 @@ namespace splashkit_lib
             return -1;
         }
     }
+
     void sk_i2c_close(int handle)
     {
         if (check_pi())
@@ -188,6 +227,7 @@ namespace splashkit_lib
             }
         }
     }
+
     int sk_i2c_read_byte(int handle)
     {
         if (check_pi())
@@ -195,7 +235,7 @@ namespace splashkit_lib
             int result = ::i2c_read_byte(pi, handle);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Read Error: " << result; // Replace with your error handling
             }
             return result;
         }
@@ -204,6 +244,7 @@ namespace splashkit_lib
             return -1;
         }
     }
+
     int sk_i2c_write_byte(int handle, int data)
     {
         if (check_pi())
@@ -211,7 +252,7 @@ namespace splashkit_lib
             int result = ::i2c_write_byte(pi, handle, data);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Write Error: " << result; // Replace with your error handling if needed
             }
             return result;
         }
@@ -220,6 +261,7 @@ namespace splashkit_lib
             return -1;
         }
     }
+
     int sk_i2c_read_device(int handle, char *buf, int count)
     {
         if (check_pi())
@@ -236,6 +278,7 @@ namespace splashkit_lib
             return -1;
         }
     }
+
     void sk_i2c_write_device(int handle, char *buf, int count)
     {
         if (check_pi())
@@ -248,7 +291,6 @@ namespace splashkit_lib
         }
     }
 
-    // Additional I2C Functions (new)
     int sk_i2c_read_byte_data(int handle, int reg)
     {
         if (check_pi())
@@ -256,7 +298,7 @@ namespace splashkit_lib
             int result = ::i2c_read_byte_data(pi, handle, reg);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Read Error (reg " << reg << "): " << result;
             }
             return result;
         }
@@ -273,7 +315,7 @@ namespace splashkit_lib
             int result = ::i2c_write_byte_data(pi, handle, reg, data);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Write Error (reg " << reg << ", data " << data << "): " << result;
             }
         }
     }
@@ -285,7 +327,7 @@ namespace splashkit_lib
             int result = ::i2c_read_word_data(pi, handle, reg);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Read Error (reg " << reg << "): " << result;
             }
             return result;
         }
@@ -302,7 +344,7 @@ namespace splashkit_lib
             int result = ::i2c_write_word_data(pi, handle, reg, data);
             if (result < 0)
             {
-                LOG(ERROR) << sk_gpio_error_message(result);
+                LOG(ERROR) << "I2C Write Error (reg " << reg << ", data " << data << "): " << result;
             }
         }
     }
@@ -319,26 +361,37 @@ namespace splashkit_lib
     int sk_spi_open(int channel, int speed, int spi_flags)
     {
         if (check_pi())
+        {
             return spi_open(pi, channel, speed, spi_flags);
+        }
         else
+        {
             return -1;
+        }
     }
 
     int sk_spi_close(int handle)
     {
         if (check_pi())
+        {
             return spi_close(pi, handle);
+        }
         else
+        {
             return -1;
+        }
     }
 
     int sk_spi_transfer(int handle, char *send_buf, char *recv_buf, int count)
     {
         if (check_pi())
+        {
             return spi_xfer(pi, handle, send_buf, recv_buf, count);
+        }
         else
             return -1;
     }
+
     void sk_set_servo_pulsewidth(int pin, int pulsewidth)
     {
         if (!check_pi())
@@ -349,6 +402,7 @@ namespace splashkit_lib
             LOG(ERROR) << sk_gpio_error_message(result);
         }
     }
+
     int sk_get_servo_pulsewidth(int pin)
     {
         if (!check_pi())
@@ -365,7 +419,7 @@ namespace splashkit_lib
 #endif
 
     // Remote GPIO Functions
-    connection sk_remote_gpio_init(std::string name, const std::string &host, unsigned short int port)
+    connection sk_remote_gpio_init(string name, const string &host, unsigned short int port)
     {
         return open_connection(name, host, port);
     }
@@ -481,7 +535,7 @@ namespace splashkit_lib
         {
             int num_send_bytes = sizeof(cmd);
 
-            std::vector<char> buffer(num_send_bytes);
+            vector<char> buffer(num_send_bytes);
             memcpy(buffer.data(), &cmd, num_send_bytes);
 
             if (sk_send_bytes(&pi->socket, buffer.data(), num_send_bytes))
@@ -532,7 +586,7 @@ namespace splashkit_lib
     // ... (all the way through the last definitions)
     // #define PI_CUSTOM_ERR_999    -3999
 
-    std::string sk_gpio_error_message(int error_code)
+    string sk_gpio_error_message(int error_code)
     {
         switch (error_code)
         {
@@ -1011,5 +1065,4 @@ namespace splashkit_lib
             return "Unknown error code " + std::to_string(error_code);
         }
     }
-
 }

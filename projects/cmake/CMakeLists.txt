@@ -149,28 +149,28 @@ if (NOT APPLE AND NOT MSYS)
             message("-- Pigpio libraries found")
             include_directories(${PIGPIOD_INCLUDE_DIR})
             add_definitions(-DRASPBERRY_PI)
-            add_definitions(-DELPP_NO_DEFAULT_LOG_FILE)
+            # add_definitions(-DELPP_NO_DEFAULT_LOG_FILE)
             # Override LIB_FLAGS for Raspberry Pi to include pigpiod_if2
             set(LIB_FLAGS "-lSDL2 \
-                           -lSDL2_mixer \
-                           -lSDL2_ttf \
-                           -lSDL2_gfx \
-                           -lSDL2_image \
-                           -lSDL2_net \
-                           -lpthread \
-                           -lbz2 \
-                           -lFLAC \
-                           -lvorbis \
-                           -lz \
-                           -lpng16 \
-                           -lvorbisfile \
-                           -logg \
-                           -lwebp \
-                           -lfreetype \
-                           -lcurl \
-                           -ldl \
-                           -lstdc++fs \
-                           -lpigpiod_if2")
+                            -lSDL2_mixer \
+                            -lSDL2_ttf \
+                            -lSDL2_gfx \
+                            -lSDL2_image \
+                            -lSDL2_net \
+                            -lpthread \
+                            -lbz2 \
+                            -lFLAC \
+                            -lvorbis \
+                            -lz \
+                            -lpng16 \
+                            -lvorbisfile \
+                            -logg \
+                            -lwebp \
+                            -lfreetype \
+                            -lcurl \
+                            -ldl \
+                            -lstdc++fs \
+                            -lpigpiod_if2")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
         else()
             message(WARNING "-- Pigpio libraries NOT found. Some features may be unavailable.")
@@ -204,6 +204,7 @@ file(GLOB UNIT_TEST_SOURCE_FILES
 # SKSDK FILE INCLUDES
 file(GLOB INCLUDE_FILES
     "${SK_SRC}/coresdk/*.h"
+    "${SK_SRC}/test/unit_tests/logging_handling.h"
 )
 
 # DIRECTORY INCLUDES
@@ -299,10 +300,6 @@ set_property(TARGET skunit_tests PROPERTY POSITION_INDEPENDENT_CODE FALSE)
 
 # target_link_options(skunit_tests PUBLIC "LINKER:-U,___darwin_check_fd_set_overflow")
 
-# Disable logs in skunit_tests (but not in sktest)
-# target_compile_options(skunit_tests PRIVATE -DELPP_DISABLE_LOGS)
-# target_compile_options(SplashKitBackend PRIVATE -DELPP_DISABLE_LOGS)
-
 target_link_libraries(skunit_tests SplashKitBackend)
 target_link_libraries(skunit_tests ${LIB_FLAGS})
 
@@ -322,7 +319,7 @@ add_custom_command(
 
 # Discover and register Catch2 tests
 catch_discover_tests(skunit_tests)
-#### END sktest EXECUTABLE ####
+#### END skunit_tests EXECUTABLE ####
 
 install(TARGETS SplashKitBackend DESTINATION lib)
 install(FILES ${INCLUDE_FILES} DESTINATION include/SplashKitBackend)
