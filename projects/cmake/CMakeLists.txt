@@ -149,7 +149,7 @@ if (NOT APPLE AND NOT MSYS)
     # Use WiringPi for Raspberry Pi 5 (limited functionality)
     if(RASPBERRY_PI_5)
         # Locate WiringPi libraries
-        find_path(WIRINGPI_INCLUDE_DIR NAMES wiringPi.hmake HINTS /usr/include /usr/local/include)
+        find_path(WIRINGPI_INCLUDE_DIR NAMES wiringPi.h HINTS /usr/include /usr/local/include)
         find_library(WIRINGPI_LIBRARY NAMES wiringPi libwiringPi.so HINTS /usr/lib /usr/local/lib)
 
         if(WIRINGPI_LIBRARY AND WIRINGPI_INCLUDE_DIR)
