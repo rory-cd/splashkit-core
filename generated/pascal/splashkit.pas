@@ -229,7 +229,8 @@ type AdcPin = (
   ADC_PIN_7 = 7
 );
 type AdcType = (
-  ADS7830 = 0
+  ADS7830 = 0,
+  PCF8591 = 1
 );
 type DrawingDest = (
   DRAW_TO_SCREEN,
@@ -325,6 +326,13 @@ type InterfaceStyle = (
   SHADED_LIGHT_STYLE = 3,
   BUBBLE = 4,
   BUBBLE_MULTICOLORED = 5
+);
+type MotorDirection = (
+  MOTOR_FORWARD,
+  MOTOR_BACKWARD
+);
+type MotorDriverType = (
+  L298N = 0
 );
 type PullUpDown = (
   PUD_OFF = 0,
@@ -540,6 +548,8 @@ function VectorWorldToScreen(): Vector2D;
 function WindowArea(wind: Window): Rectangle;
 procedure DrawCircle(clr: Color; const c: Circle);
 procedure DrawCircle(clr: Color; const c: Circle; opts: DrawingOptions);
+procedure DrawCircle(clr: Color; const pt: Point2D; radius: Double);
+procedure DrawCircle(clr: Color; const pt: Point2D; radius: Double; opts: DrawingOptions);
 procedure DrawCircle(clr: Color; x: Double; y: Double; radius: Double);
 procedure DrawCircle(clr: Color; x: Double; y: Double; radius: Double; opts: DrawingOptions);
 procedure DrawCircleOnBitmap(destination: Bitmap; clr: Color; x: Double; y: Double; radius: Double);
@@ -548,6 +558,8 @@ procedure DrawCircleOnWindow(destination: Window; clr: Color; x: Double; y: Doub
 procedure DrawCircleOnWindow(destination: Window; clr: Color; x: Double; y: Double; radius: Double; opts: DrawingOptions);
 procedure FillCircle(clr: Color; const c: Circle);
 procedure FillCircle(clr: Color; const c: Circle; opts: DrawingOptions);
+procedure FillCircle(clr: Color; const pt: Point2D; radius: Double);
+procedure FillCircle(clr: Color; const pt: Point2D; radius: Double; opts: DrawingOptions);
 procedure FillCircle(clr: Color; x: Double; y: Double; radius: Double);
 procedure FillCircle(clr: Color; x: Double; y: Double; radius: Double; opts: DrawingOptions);
 procedure FillCircleOnBitmap(destination: Bitmap; clr: Color; x: Double; y: Double; radius: Double);
@@ -1173,6 +1185,7 @@ function LoadMusic(const name: String; const filename: String): Music;
 function MusicFilename(data: Music): String;
 function MusicName(data: Music): String;
 function MusicNamed(const name: String): Music;
+function MusicPaused(): Boolean;
 function MusicPlaying(): Boolean;
 function MusicValid(m: Music): Boolean;
 function MusicVolume(): Double;
@@ -1322,13 +1335,18 @@ procedure CloseAdc(adc: AdcDevice);
 procedure CloseAdc(const name: String);
 procedure CloseAllAdc();
 function HasAdcDevice(const name: String): Boolean;
-function OpenAdc(const name: String; type: AdcType): AdcDevice;
-function OpenAdc(const name: String; bus: Integer; address: Integer; type: AdcType): AdcDevice;
+function OpenAdc(const name: String; typeOfAdc: AdcType): AdcDevice;
+function OpenAdc(const name: String; bus: Integer; address: Integer; typeOfAdc: AdcType): AdcDevice;
 function ReadAdc(adc: AdcDevice; channel: AdcPin): Integer;
 function ReadAdc(const name: String; channel: AdcPin): Integer;
+function GpioPinToInt(value: GpioPinValue): Integer;
 function HasGpio(): Boolean;
 procedure RaspiCleanup();
 function RaspiGetMode(pin: GpioPin): GpioPinMode;
+function RaspiGetServoPulsewidth(pin: GpioPin): Integer;
+function RaspiI2cOpen(bus: Integer; address: Integer): Integer;
+procedure RaspiI2cWrite(handle: Integer; data: Integer);
+procedure RaspiI2cWrite(handle: Integer; reg: Integer; data: Integer; bytes: Integer);
 procedure RaspiInit();
 function RaspiRead(pin: GpioPin): GpioPinValue;
 procedure RaspiSetMode(pin: GpioPin; mode: GpioPinMode);
@@ -1336,6 +1354,7 @@ procedure RaspiSetPullUpDown(pin: GpioPin; pud: PullUpDown);
 procedure RaspiSetPwmDutycycle(pin: GpioPin; dutycycle: Integer);
 procedure RaspiSetPwmFrequency(pin: GpioPin; frequency: Integer);
 procedure RaspiSetPwmRange(pin: GpioPin; range: Integer);
+procedure RaspiSetServoPulsewidth(pin: GpioPin; pulsewidth: Integer);
 function RaspiSpiClose(handle: Integer): Integer;
 function RaspiSpiOpen(channel: Integer; speed: Integer; spiFlags: Integer): Integer;
 function RaspiSpiTransfer(handle: Integer; const send: String; count: Integer; var bytesTransfered: Integer): String;
@@ -2273,6 +2292,22 @@ function __skadapter__to_sklib_interface_style(v: InterfaceStyle): LongInt;
 begin
   result := Integer(v);
 end;
+function __skadapter__to_motor_direction(v: LongInt): MotorDirection;
+begin
+  result := MotorDirection(v);
+end;
+function __skadapter__to_sklib_motor_direction(v: MotorDirection): LongInt;
+begin
+  result := Integer(v);
+end;
+function __skadapter__to_motor_driver_type(v: LongInt): MotorDriverType;
+begin
+  result := MotorDriverType(v);
+end;
+function __skadapter__to_sklib_motor_driver_type(v: MotorDriverType): LongInt;
+begin
+  result := Integer(v);
+end;
 function __skadapter__to_pull_up_down(v: LongInt): PullUpDown;
 begin
   result := PullUpDown(v);
@@ -3065,6 +3100,8 @@ function __sklib__vector_world_to_screen(): __sklib_vector_2d; cdecl; external;
 function __sklib__window_area__window(wind: __sklib_ptr): __sklib_rectangle; cdecl; external;
 procedure __sklib__draw_circle__color__circle_ref(clr: __sklib_color; const c: __sklib_circle); cdecl; external;
 procedure __sklib__draw_circle__color__circle_ref__drawing_options(clr: __sklib_color; const c: __sklib_circle; opts: __sklib_drawing_options); cdecl; external;
+procedure __sklib__draw_circle__color__point_2d_ref__double(clr: __sklib_color; const pt: __sklib_point_2d; radius: Double); cdecl; external;
+procedure __sklib__draw_circle__color__point_2d_ref__double__drawing_options(clr: __sklib_color; const pt: __sklib_point_2d; radius: Double; opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__draw_circle__color__double__double__double(clr: __sklib_color; x: Double; y: Double; radius: Double); cdecl; external;
 procedure __sklib__draw_circle__color__double__double__double__drawing_options(clr: __sklib_color; x: Double; y: Double; radius: Double; opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__draw_circle_on_bitmap__bitmap__color__double__double__double(destination: __sklib_ptr; clr: __sklib_color; x: Double; y: Double; radius: Double); cdecl; external;
@@ -3073,6 +3110,8 @@ procedure __sklib__draw_circle_on_window__window__color__double__double__double(
 procedure __sklib__draw_circle_on_window__window__color__double__double__double__drawing_options(destination: __sklib_ptr; clr: __sklib_color; x: Double; y: Double; radius: Double; opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__fill_circle__color__circle_ref(clr: __sklib_color; const c: __sklib_circle); cdecl; external;
 procedure __sklib__fill_circle__color__circle_ref__drawing_options(clr: __sklib_color; const c: __sklib_circle; opts: __sklib_drawing_options); cdecl; external;
+procedure __sklib__fill_circle__color__point_2d_ref__double(clr: __sklib_color; const pt: __sklib_point_2d; radius: Double); cdecl; external;
+procedure __sklib__fill_circle__color__point_2d_ref__double__drawing_options(clr: __sklib_color; const pt: __sklib_point_2d; radius: Double; opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__fill_circle__color__double__double__double(clr: __sklib_color; x: Double; y: Double; radius: Double); cdecl; external;
 procedure __sklib__fill_circle__color__double__double__double__drawing_options(clr: __sklib_color; x: Double; y: Double; radius: Double; opts: __sklib_drawing_options); cdecl; external;
 procedure __sklib__fill_circle_on_bitmap__bitmap__color__double__double__double(destination: __sklib_ptr; clr: __sklib_color; x: Double; y: Double; radius: Double); cdecl; external;
@@ -3698,6 +3737,7 @@ function __sklib__load_music__string_ref__string_ref(const name: __sklib_string;
 function __sklib__music_filename__music(data: __sklib_ptr): __sklib_string; cdecl; external;
 function __sklib__music_name__music(data: __sklib_ptr): __sklib_string; cdecl; external;
 function __sklib__music_named__string_ref(const name: __sklib_string): __sklib_ptr; cdecl; external;
+function __sklib__music_paused(): LongInt; cdecl; external;
 function __sklib__music_playing(): LongInt; cdecl; external;
 function __sklib__music_valid__music(m: __sklib_ptr): LongInt; cdecl; external;
 function __sklib__music_volume(): Double; cdecl; external;
@@ -3847,13 +3887,18 @@ procedure __sklib__close_adc__adc_device(adc: __sklib_ptr); cdecl; external;
 procedure __sklib__close_adc__string_ref(const name: __sklib_string); cdecl; external;
 procedure __sklib__close_all_adc(); cdecl; external;
 function __sklib__has_adc_device__string_ref(const name: __sklib_string): LongInt; cdecl; external;
-function __sklib__open_adc__string_ref__adc_type(const name: __sklib_string; type: LongInt): __sklib_ptr; cdecl; external;
-function __sklib__open_adc__string_ref__int__int__adc_type(const name: __sklib_string; bus: Integer; address: Integer; type: LongInt): __sklib_ptr; cdecl; external;
+function __sklib__open_adc__string_ref__adc_type(const name: __sklib_string; typeOfAdc: LongInt): __sklib_ptr; cdecl; external;
+function __sklib__open_adc__string_ref__int__int__adc_type(const name: __sklib_string; bus: Integer; address: Integer; typeOfAdc: LongInt): __sklib_ptr; cdecl; external;
 function __sklib__read_adc__adc_device__adc_pin(adc: __sklib_ptr; channel: LongInt): Integer; cdecl; external;
 function __sklib__read_adc__string_ref__adc_pin(const name: __sklib_string; channel: LongInt): Integer; cdecl; external;
+function __sklib__gpio_pin_to_int__gpio_pin_value(value: LongInt): Integer; cdecl; external;
 function __sklib__has_gpio(): LongInt; cdecl; external;
 procedure __sklib__raspi_cleanup(); cdecl; external;
 function __sklib__raspi_get_mode__gpio_pin(pin: LongInt): LongInt; cdecl; external;
+function __sklib__raspi_get_servo_pulsewidth__gpio_pin(pin: LongInt): Integer; cdecl; external;
+function __sklib__raspi_i2c_open__int__int(bus: Integer; address: Integer): Integer; cdecl; external;
+procedure __sklib__raspi_i2c_write__int__int(handle: Integer; data: Integer); cdecl; external;
+procedure __sklib__raspi_i2c_write__int__int__int__int(handle: Integer; reg: Integer; data: Integer; bytes: Integer); cdecl; external;
 procedure __sklib__raspi_init(); cdecl; external;
 function __sklib__raspi_read__gpio_pin(pin: LongInt): LongInt; cdecl; external;
 procedure __sklib__raspi_set_mode__gpio_pin__gpio_pin_mode(pin: LongInt; mode: LongInt); cdecl; external;
@@ -3861,6 +3906,7 @@ procedure __sklib__raspi_set_pull_up_down__gpio_pin__pull_up_down(pin: LongInt; 
 procedure __sklib__raspi_set_pwm_dutycycle__gpio_pin__int(pin: LongInt; dutycycle: Integer); cdecl; external;
 procedure __sklib__raspi_set_pwm_frequency__gpio_pin__int(pin: LongInt; frequency: Integer); cdecl; external;
 procedure __sklib__raspi_set_pwm_range__gpio_pin__int(pin: LongInt; range: Integer); cdecl; external;
+procedure __sklib__raspi_set_servo_pulsewidth__gpio_pin__int(pin: LongInt; pulsewidth: Integer); cdecl; external;
 function __sklib__raspi_spi_close__int(handle: Integer): Integer; cdecl; external;
 function __sklib__raspi_spi_open__int__int__int(channel: Integer; speed: Integer; spiFlags: Integer): Integer; cdecl; external;
 function __sklib__raspi_spi_transfer__int__string_ref__int__int_ref(handle: Integer; const send: __sklib_string; count: Integer; var bytesTransfered: Integer): __sklib_string; cdecl; external;
@@ -5301,6 +5347,30 @@ begin
   __skparam__opts := __skadapter__to_sklib_drawing_options(opts);
   __sklib__draw_circle__color__circle_ref__drawing_options(__skparam__clr, __skparam__c, __skparam__opts);
 end;
+procedure DrawCircle(clr: Color; const pt: Point2D; radius: Double);
+var
+  __skparam__clr: __sklib_color;
+  __skparam__pt: __sklib_point_2d;
+  __skparam__radius: Double;
+begin
+  __skparam__clr := __skadapter__to_sklib_color(clr);
+  __skparam__pt := __skadapter__to_sklib_point_2d(pt);
+  __skparam__radius := __skadapter__to_sklib_double(radius);
+  __sklib__draw_circle__color__point_2d_ref__double(__skparam__clr, __skparam__pt, __skparam__radius);
+end;
+procedure DrawCircle(clr: Color; const pt: Point2D; radius: Double; opts: DrawingOptions);
+var
+  __skparam__clr: __sklib_color;
+  __skparam__pt: __sklib_point_2d;
+  __skparam__radius: Double;
+  __skparam__opts: __sklib_drawing_options;
+begin
+  __skparam__clr := __skadapter__to_sklib_color(clr);
+  __skparam__pt := __skadapter__to_sklib_point_2d(pt);
+  __skparam__radius := __skadapter__to_sklib_double(radius);
+  __skparam__opts := __skadapter__to_sklib_drawing_options(opts);
+  __sklib__draw_circle__color__point_2d_ref__double__drawing_options(__skparam__clr, __skparam__pt, __skparam__radius, __skparam__opts);
+end;
 procedure DrawCircle(clr: Color; x: Double; y: Double; radius: Double);
 var
   __skparam__clr: __sklib_color;
@@ -5412,6 +5482,30 @@ begin
   __skparam__c := __skadapter__to_sklib_circle(c);
   __skparam__opts := __skadapter__to_sklib_drawing_options(opts);
   __sklib__fill_circle__color__circle_ref__drawing_options(__skparam__clr, __skparam__c, __skparam__opts);
+end;
+procedure FillCircle(clr: Color; const pt: Point2D; radius: Double);
+var
+  __skparam__clr: __sklib_color;
+  __skparam__pt: __sklib_point_2d;
+  __skparam__radius: Double;
+begin
+  __skparam__clr := __skadapter__to_sklib_color(clr);
+  __skparam__pt := __skadapter__to_sklib_point_2d(pt);
+  __skparam__radius := __skadapter__to_sklib_double(radius);
+  __sklib__fill_circle__color__point_2d_ref__double(__skparam__clr, __skparam__pt, __skparam__radius);
+end;
+procedure FillCircle(clr: Color; const pt: Point2D; radius: Double; opts: DrawingOptions);
+var
+  __skparam__clr: __sklib_color;
+  __skparam__pt: __sklib_point_2d;
+  __skparam__radius: Double;
+  __skparam__opts: __sklib_drawing_options;
+begin
+  __skparam__clr := __skadapter__to_sklib_color(clr);
+  __skparam__pt := __skadapter__to_sklib_point_2d(pt);
+  __skparam__radius := __skadapter__to_sklib_double(radius);
+  __skparam__opts := __skadapter__to_sklib_drawing_options(opts);
+  __sklib__fill_circle__color__point_2d_ref__double__drawing_options(__skparam__clr, __skparam__pt, __skparam__radius, __skparam__opts);
 end;
 procedure FillCircle(clr: Color; x: Double; y: Double; radius: Double);
 var
@@ -11636,6 +11730,13 @@ begin
   __skreturn := __sklib__music_named__string_ref(__skparam__name);
   result := __skadapter__to_music(__skreturn);
 end;
+function MusicPaused(): Boolean;
+var
+  __skreturn: LongInt;
+begin
+  __skreturn := __sklib__music_paused();
+  result := __skadapter__to_bool(__skreturn);
+end;
 function MusicPlaying(): Boolean;
 var
   __skreturn: LongInt;
@@ -13060,30 +13161,30 @@ begin
   __skreturn := __sklib__has_adc_device__string_ref(__skparam__name);
   result := __skadapter__to_bool(__skreturn);
 end;
-function OpenAdc(const name: String; type: AdcType): AdcDevice;
+function OpenAdc(const name: String; typeOfAdc: AdcType): AdcDevice;
 var
   __skparam__name: __sklib_string;
-  __skparam__type: LongInt;
+  __skparam__type_of_adc: LongInt;
   __skreturn: __sklib_ptr;
 begin
   __skparam__name := __skadapter__to_sklib_string(name);
-  __skparam__type := __skadapter__to_sklib_adc_type(type);
-  __skreturn := __sklib__open_adc__string_ref__adc_type(__skparam__name, __skparam__type);
+  __skparam__type_of_adc := __skadapter__to_sklib_adc_type(typeOfAdc);
+  __skreturn := __sklib__open_adc__string_ref__adc_type(__skparam__name, __skparam__type_of_adc);
   result := __skadapter__to_adc_device(__skreturn);
 end;
-function OpenAdc(const name: String; bus: Integer; address: Integer; type: AdcType): AdcDevice;
+function OpenAdc(const name: String; bus: Integer; address: Integer; typeOfAdc: AdcType): AdcDevice;
 var
   __skparam__name: __sklib_string;
   __skparam__bus: Integer;
   __skparam__address: Integer;
-  __skparam__type: LongInt;
+  __skparam__type_of_adc: LongInt;
   __skreturn: __sklib_ptr;
 begin
   __skparam__name := __skadapter__to_sklib_string(name);
   __skparam__bus := __skadapter__to_sklib_int(bus);
   __skparam__address := __skadapter__to_sklib_int(address);
-  __skparam__type := __skadapter__to_sklib_adc_type(type);
-  __skreturn := __sklib__open_adc__string_ref__int__int__adc_type(__skparam__name, __skparam__bus, __skparam__address, __skparam__type);
+  __skparam__type_of_adc := __skadapter__to_sklib_adc_type(typeOfAdc);
+  __skreturn := __sklib__open_adc__string_ref__int__int__adc_type(__skparam__name, __skparam__bus, __skparam__address, __skparam__type_of_adc);
   result := __skadapter__to_adc_device(__skreturn);
 end;
 function ReadAdc(adc: AdcDevice; channel: AdcPin): Integer;
@@ -13108,6 +13209,15 @@ begin
   __skreturn := __sklib__read_adc__string_ref__adc_pin(__skparam__name, __skparam__channel);
   result := __skadapter__to_int(__skreturn);
 end;
+function GpioPinToInt(value: GpioPinValue): Integer;
+var
+  __skparam__value: LongInt;
+  __skreturn: Integer;
+begin
+  __skparam__value := __skadapter__to_sklib_gpio_pin_value(value);
+  __skreturn := __sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value);
+  result := __skadapter__to_int(__skreturn);
+end;
 function HasGpio(): Boolean;
 var
   __skreturn: LongInt;
@@ -13127,6 +13237,48 @@ begin
   __skparam__pin := __skadapter__to_sklib_gpio_pin(pin);
   __skreturn := __sklib__raspi_get_mode__gpio_pin(__skparam__pin);
   result := __skadapter__to_gpio_pin_mode(__skreturn);
+end;
+function RaspiGetServoPulsewidth(pin: GpioPin): Integer;
+var
+  __skparam__pin: LongInt;
+  __skreturn: Integer;
+begin
+  __skparam__pin := __skadapter__to_sklib_gpio_pin(pin);
+  __skreturn := __sklib__raspi_get_servo_pulsewidth__gpio_pin(__skparam__pin);
+  result := __skadapter__to_int(__skreturn);
+end;
+function RaspiI2cOpen(bus: Integer; address: Integer): Integer;
+var
+  __skparam__bus: Integer;
+  __skparam__address: Integer;
+  __skreturn: Integer;
+begin
+  __skparam__bus := __skadapter__to_sklib_int(bus);
+  __skparam__address := __skadapter__to_sklib_int(address);
+  __skreturn := __sklib__raspi_i2c_open__int__int(__skparam__bus, __skparam__address);
+  result := __skadapter__to_int(__skreturn);
+end;
+procedure RaspiI2cWrite(handle: Integer; data: Integer);
+var
+  __skparam__handle: Integer;
+  __skparam__data: Integer;
+begin
+  __skparam__handle := __skadapter__to_sklib_int(handle);
+  __skparam__data := __skadapter__to_sklib_int(data);
+  __sklib__raspi_i2c_write__int__int(__skparam__handle, __skparam__data);
+end;
+procedure RaspiI2cWrite(handle: Integer; reg: Integer; data: Integer; bytes: Integer);
+var
+  __skparam__handle: Integer;
+  __skparam__reg: Integer;
+  __skparam__data: Integer;
+  __skparam__bytes: Integer;
+begin
+  __skparam__handle := __skadapter__to_sklib_int(handle);
+  __skparam__reg := __skadapter__to_sklib_int(reg);
+  __skparam__data := __skadapter__to_sklib_int(data);
+  __skparam__bytes := __skadapter__to_sklib_int(bytes);
+  __sklib__raspi_i2c_write__int__int__int__int(__skparam__handle, __skparam__reg, __skparam__data, __skparam__bytes);
 end;
 procedure RaspiInit();
 begin
@@ -13185,6 +13337,15 @@ begin
   __skparam__pin := __skadapter__to_sklib_gpio_pin(pin);
   __skparam__range := __skadapter__to_sklib_int(range);
   __sklib__raspi_set_pwm_range__gpio_pin__int(__skparam__pin, __skparam__range);
+end;
+procedure RaspiSetServoPulsewidth(pin: GpioPin; pulsewidth: Integer);
+var
+  __skparam__pin: LongInt;
+  __skparam__pulsewidth: Integer;
+begin
+  __skparam__pin := __skadapter__to_sklib_gpio_pin(pin);
+  __skparam__pulsewidth := __skadapter__to_sklib_int(pulsewidth);
+  __sklib__raspi_set_servo_pulsewidth__gpio_pin__int(__skparam__pin, __skparam__pulsewidth);
 end;
 function RaspiSpiClose(handle: Integer): Integer;
 var

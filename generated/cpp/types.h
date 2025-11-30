@@ -34,7 +34,8 @@ typedef enum {
     ADC_PIN_7 = 7
 } adc_pin;
 typedef enum {
-    ADS7830 = 0
+    ADS7830 = 0,
+    PCF8591 = 1
 } adc_type;
 typedef enum {
     DRAW_TO_SCREEN,
@@ -131,6 +132,13 @@ typedef enum {
     BUBBLE = 4,
     BUBBLE_MULTICOLORED = 5
 } interface_style;
+typedef enum {
+    MOTOR_FORWARD,
+    MOTOR_BACKWARD
+} motor_direction;
+typedef enum {
+    L298N = 0
+} motor_driver_type;
 typedef enum {
     PUD_OFF = 0,
     PUD_DOWN = 1,

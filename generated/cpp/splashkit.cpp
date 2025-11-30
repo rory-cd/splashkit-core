@@ -598,6 +598,19 @@ void draw_circle(color clr, const circle &c, drawing_options opts) {
     __sklib_drawing_options __skparam__opts = __skadapter__to_sklib_drawing_options(opts);
     __sklib__draw_circle__color__circle_ref__drawing_options(__skparam__clr, __skparam__c, __skparam__opts);
 }
+void draw_circle(color clr, const point_2d &pt, double radius) {
+    __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
+    const __sklib_point_2d __skparam__pt = __skadapter__to_sklib_point_2d(pt);
+    double __skparam__radius = __skadapter__to_double(radius);
+    __sklib__draw_circle__color__point_2d_ref__double(__skparam__clr, __skparam__pt, __skparam__radius);
+}
+void draw_circle(color clr, const point_2d &pt, double radius, drawing_options opts) {
+    __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
+    const __sklib_point_2d __skparam__pt = __skadapter__to_sklib_point_2d(pt);
+    double __skparam__radius = __skadapter__to_double(radius);
+    __sklib_drawing_options __skparam__opts = __skadapter__to_sklib_drawing_options(opts);
+    __sklib__draw_circle__color__point_2d_ref__double__drawing_options(__skparam__clr, __skparam__pt, __skparam__radius, __skparam__opts);
+}
 void draw_circle(color clr, double x, double y, double radius) {
     __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
     double __skparam__x = __skadapter__to_double(x);
@@ -657,6 +670,19 @@ void fill_circle(color clr, const circle &c, drawing_options opts) {
     const __sklib_circle __skparam__c = __skadapter__to_sklib_circle(c);
     __sklib_drawing_options __skparam__opts = __skadapter__to_sklib_drawing_options(opts);
     __sklib__fill_circle__color__circle_ref__drawing_options(__skparam__clr, __skparam__c, __skparam__opts);
+}
+void fill_circle(color clr, const point_2d &pt, double radius) {
+    __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
+    const __sklib_point_2d __skparam__pt = __skadapter__to_sklib_point_2d(pt);
+    double __skparam__radius = __skadapter__to_double(radius);
+    __sklib__fill_circle__color__point_2d_ref__double(__skparam__clr, __skparam__pt, __skparam__radius);
+}
+void fill_circle(color clr, const point_2d &pt, double radius, drawing_options opts) {
+    __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
+    const __sklib_point_2d __skparam__pt = __skadapter__to_sklib_point_2d(pt);
+    double __skparam__radius = __skadapter__to_double(radius);
+    __sklib_drawing_options __skparam__opts = __skadapter__to_sklib_drawing_options(opts);
+    __sklib__fill_circle__color__point_2d_ref__double__drawing_options(__skparam__clr, __skparam__pt, __skparam__radius, __skparam__opts);
 }
 void fill_circle(color clr, double x, double y, double radius) {
     __sklib_color __skparam__clr = __skadapter__to_sklib_color(clr);
@@ -4204,6 +4230,10 @@ music music_named(const string &name) {
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_music(__skreturn);
 }
+bool music_paused() {
+    int __skreturn = __sklib__music_paused();
+    return __skadapter__to_bool(__skreturn);
+}
 bool music_playing() {
     int __skreturn = __sklib__music_playing();
     return __skadapter__to_bool(__skreturn);
@@ -5042,19 +5072,19 @@ bool has_adc_device(const string &name) {
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_bool(__skreturn);
 }
-adc_device open_adc(const string &name, adc_type type) {
+adc_device open_adc(const string &name, adc_type type_of_adc) {
     const __sklib_string __skparam__name = __skadapter__to_sklib_string(name);
-    int __skparam__type = __skadapter__to_int(type);
-    __sklib_adc_device __skreturn = __sklib__open_adc__string_ref__adc_type(__skparam__name, __skparam__type);
+    int __skparam__type_of_adc = __skadapter__to_int(type_of_adc);
+    __sklib_adc_device __skreturn = __sklib__open_adc__string_ref__adc_type(__skparam__name, __skparam__type_of_adc);
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_adc_device(__skreturn);
 }
-adc_device open_adc(const string &name, int bus, int address, adc_type type) {
+adc_device open_adc(const string &name, int bus, int address, adc_type type_of_adc) {
     const __sklib_string __skparam__name = __skadapter__to_sklib_string(name);
     int __skparam__bus = __skadapter__to_int(bus);
     int __skparam__address = __skadapter__to_int(address);
-    int __skparam__type = __skadapter__to_int(type);
-    __sklib_adc_device __skreturn = __sklib__open_adc__string_ref__int__int__adc_type(__skparam__name, __skparam__bus, __skparam__address, __skparam__type);
+    int __skparam__type_of_adc = __skadapter__to_int(type_of_adc);
+    __sklib_adc_device __skreturn = __sklib__open_adc__string_ref__int__int__adc_type(__skparam__name, __skparam__bus, __skparam__address, __skparam__type_of_adc);
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_adc_device(__skreturn);
 }
@@ -5071,6 +5101,11 @@ int read_adc(const string &name, adc_pin channel) {
     __skadapter__free__sklib_string(__skparam__name);
     return __skadapter__to_int(__skreturn);
 }
+int gpio_pin_to_int(gpio_pin_value value) {
+    int __skparam__value = __skadapter__to_int(value);
+    int __skreturn = __sklib__gpio_pin_to_int__gpio_pin_value(__skparam__value);
+    return __skadapter__to_int(__skreturn);
+}
 bool has_gpio() {
     int __skreturn = __sklib__has_gpio();
     return __skadapter__to_bool(__skreturn);
@@ -5082,6 +5117,29 @@ gpio_pin_mode raspi_get_mode(gpio_pin pin) {
     int __skparam__pin = __skadapter__to_int(pin);
     int __skreturn = __sklib__raspi_get_mode__gpio_pin(__skparam__pin);
     return __skadapter__to_gpio_pin_mode(__skreturn);
+}
+int raspi_get_servo_pulsewidth(gpio_pin pin) {
+    int __skparam__pin = __skadapter__to_int(pin);
+    int __skreturn = __sklib__raspi_get_servo_pulsewidth__gpio_pin(__skparam__pin);
+    return __skadapter__to_int(__skreturn);
+}
+int raspi_i2c_open(int bus, int address) {
+    int __skparam__bus = __skadapter__to_int(bus);
+    int __skparam__address = __skadapter__to_int(address);
+    int __skreturn = __sklib__raspi_i2c_open__int__int(__skparam__bus, __skparam__address);
+    return __skadapter__to_int(__skreturn);
+}
+void raspi_i2c_write(int handle, int data) {
+    int __skparam__handle = __skadapter__to_int(handle);
+    int __skparam__data = __skadapter__to_int(data);
+    __sklib__raspi_i2c_write__int__int(__skparam__handle, __skparam__data);
+}
+void raspi_i2c_write(int handle, int reg, int data, int bytes) {
+    int __skparam__handle = __skadapter__to_int(handle);
+    int __skparam__reg = __skadapter__to_int(reg);
+    int __skparam__data = __skadapter__to_int(data);
+    int __skparam__bytes = __skadapter__to_int(bytes);
+    __sklib__raspi_i2c_write__int__int__int__int(__skparam__handle, __skparam__reg, __skparam__data, __skparam__bytes);
 }
 void raspi_init() {
     __sklib__raspi_init();
@@ -5115,6 +5173,11 @@ void raspi_set_pwm_range(gpio_pin pin, int range) {
     int __skparam__pin = __skadapter__to_int(pin);
     int __skparam__range = __skadapter__to_int(range);
     __sklib__raspi_set_pwm_range__gpio_pin__int(__skparam__pin, __skparam__range);
+}
+void raspi_set_servo_pulsewidth(gpio_pin pin, int pulsewidth) {
+    int __skparam__pin = __skadapter__to_int(pin);
+    int __skparam__pulsewidth = __skadapter__to_int(pulsewidth);
+    __sklib__raspi_set_servo_pulsewidth__gpio_pin__int(__skparam__pin, __skparam__pulsewidth);
 }
 int raspi_spi_close(int handle) {
     int __skparam__handle = __skadapter__to_int(handle);
