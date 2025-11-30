@@ -150,8 +150,9 @@ TEST_CASE("bitmap filename can be retrieved", "[bitmap_filename]")
         
         // Extract filename
         std::string filepath = bitmap_filename(bmp);
+        REQUIRE(filepath.size() >= expected_filename.size());
         size_t idx = filepath.size() - expected_filename.size();
-        std::string filename = filepath.substr(idx, expected_filename.size());
+        std::string filename = filepath.substr(idx);
 
         REQUIRE(filename == expected_filename);
         free_bitmap(bmp);
