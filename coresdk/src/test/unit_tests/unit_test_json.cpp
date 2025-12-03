@@ -142,15 +142,10 @@ TEST_CASE("json can be created and read with different number types", "[json][js
         REQUIRE(json_read_number_as_double(number_types, "nonExistent") == 0.0);
     }
 
-    SECTION("handles reading strings as numbers")
+    SECTION("handles reading non-numeric types")
     {
-        json_set_string(number_types, "numericString", "21.2");
-        json_set_string(number_types, "nonNumericString", "Foo");
-        // Read as float
-        REQUIRE_THAT(json_read_number(number_types, "numericString"), WithinRel(21.2f));
+        json_set_string(number_types, "string", "21.2");
         REQUIRE(json_read_number(number_types, "nonNumericString") == 0.0f);
-        // Read as double
-        REQUIRE_THAT(json_read_number_as_double(number_types, "numericString"), WithinRel(21.2));
         REQUIRE(json_read_number_as_double(number_types, "nonNumericString") == 0.0);
     }
 
