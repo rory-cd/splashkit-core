@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <PackageVersion Include="SplashKit" />
+  </ItemGroup>
+</Project>
