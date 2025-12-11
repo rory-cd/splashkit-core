@@ -33,6 +33,7 @@ do
     Console.WriteLine($" NuGet Dev Tests, using SplashKit NuGet {nVersion}");
     Console.WriteLine($" Targeting .NET {targFrameworkVersion} // Runtime {runtimeFramework}");
     Console.WriteLine("-----------------------------------------------------");
+    Console.WriteLine("  R: Reload tests");
     Console.WriteLine(" -1: Quit");
 
     // Search the solution directory for projects
@@ -44,6 +45,7 @@ do
         if (project.Contains("Main.csproj")) continue;
         projectNames.Add(Path.GetFileNameWithoutExtension(project));
     }
+    projectNames.Sort();
 
     // Print project names
     for (int i = 0; i < projectNames.Count; i++)
@@ -54,7 +56,7 @@ do
 
     // Collect input
     string? input = Console.ReadLine();
-    bool inputIsValid = int.TryParse(input, out opt) && opt >= 0;
+    bool inputIsValid = int.TryParse(input, out opt) && opt >= 0 && opt < projectNames.Count;
 
     // Run selected program
     if (inputIsValid)
@@ -75,4 +77,3 @@ do
     }
     
 } while (opt != -1);
-return 0;
