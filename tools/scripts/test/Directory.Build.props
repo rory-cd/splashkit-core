@@ -5,4 +5,8 @@
     <!-- Suppress .NET and SplashKit version warnings -->
     <NoWarn>NETSDK1138;NU1604</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../GlobalSettings.cs" Link="GlobalSettings.cs" />
+  </ItemGroup>
 </Project>
