@@ -38,6 +38,9 @@
     <None Include="readme.md" Pack="true" PackagePath="/"/>
     <None Include="icon.png" Pack="true" PackagePath="/"/>
 
+    <!-- C# bindings -->
+    <Compile Include="$(MSBuildThisFileDirectory)../../../generated/csharp/SplashKit.cs" Link="SplashKit.cs" />
+
     <!-- Windows (x64) Libraries -->
     <Content Include=".\Libraries\win64\*.dll">
       <Pack>true</Pack>
