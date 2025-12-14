@@ -69,7 +69,6 @@ OpenConnection("ToSvr", "127.0.0.1", Server1Port);
 Console.WriteLine($"ToSvr is open:  {IsConnectionOpen("ToSvr")}");
 Console.WriteLine("Fred is open? Expect warning/false:");
 Console.WriteLine(IsConnectionOpen("Fred"));
-Console.WriteLine("Expect warning below:");
 
 CheckNetworkActivity();
 
