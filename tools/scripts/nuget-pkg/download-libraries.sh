@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# See comments at end about adding libraries to NuGet package
-
 # Set the GitHub repository URL
 repo_url="https://github.com/splashkit/skm.git"
 
@@ -9,6 +7,7 @@ repo_url="https://github.com/splashkit/skm.git"
 branch="master"
 
 # Set the folders to download
+# Note: SKM does not include pre-compiled libraries for Linux
 folders=("lib/macos" "lib/win64")
 
 # Create the destination directory if it doesn't exist
