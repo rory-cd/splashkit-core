@@ -38,7 +38,10 @@
     <None Include="readme.md" Pack="true" PackagePath="/"/>
     <None Include="icon.png" Pack="true" PackagePath="/"/>
 
-    <!-- C# bindings -->
+    <!-- C# bindings
+         SplashKit.cs was previously included as a symbolic link in this directory.
+         This was removed due to symlinks causing issues on MSYS2/Windows environments.
+    -->
     <Compile Include="$(MSBuildThisFileDirectory)../../../generated/csharp/SplashKit.cs" Link="SplashKit.cs" />
 
     <!-- Windows (x64) Libraries -->
