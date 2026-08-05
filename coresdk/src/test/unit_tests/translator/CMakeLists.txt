@@ -9,6 +9,7 @@ project(UnitTestTranslator)             # Define project name
 set(CMAKE_CXX_STANDARD 17)              # Set C++ required version
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}) # Put the executable in the main directory
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add source files to executable
 add_executable(UnitTestTranslator
