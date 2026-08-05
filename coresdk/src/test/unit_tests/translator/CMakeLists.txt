@@ -22,6 +22,7 @@ find_package(Clang REQUIRED CONFIG)     # Find the clang installation and use it
 target_include_directories(UnitTestTranslator PRIVATE
     ${LLVM_INCLUDE_DIRS}
     ${CLANG_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/external
 )
 
 # Add the libraries
