@@ -1,3 +1,4 @@
+#include "clang/AST/Stmt.h"
 #include <clang/Tooling/Tooling.h>
 #include <clang/Tooling/CompilationDatabase.h>
 #include <clang/Frontend/FrontendActions.h>
@@ -9,8 +10,11 @@
 #include <clang/Lex/PPCallbacks.h>
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Lex/MacroArgs.h>
+#include <clang/AST/RecursiveASTVisitor.h>
 
 #include <iostream>
+#include <llvm-18/llvm/Support/Casting.h>
+#include <memory>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -76,10 +80,10 @@ struct BinaryExpression : Expression
 struct VariableDeclaration
 {
     std::string name;
-    int line;
+    unsigned location;
     std::string type;
     std::unique_ptr<Expression> initializer;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, line, type, initializer)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, location, type, initializer)
 };
 
 struct Parameter
@@ -90,30 +94,87 @@ struct Parameter
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Parameter, name, type, defaultValue)
 };
 
+struct Statement
+{
+    virtual ~Statement() = default;             // Explicit destructor for safety (pointers in derived classes)
+    virtual void serialise(json &j) const = 0;  // Virtual function for base classes to define how they should be serialised
+};
+
+// Defines how nlohmann/json converts this type (Statement) to json
+void to_json(json &j, const Statement &e)
+{
+    e.serialise(j);
+}
+
+// Defines how nlohmann/json converts this type (Unique pointer to Statement) to json
+void to_json(json &j, const std::unique_ptr<Statement> &e)
+{
+    if (e) e->serialise(j);
+    else   j = nullptr;         // This converts to "null" with nlohmann/json
+}
+
 struct FunctionDeclaration
 {
     std::string name;
-    int line;
-    // std::vector<Statement> body;
-    std::string returnType;
     std::vector<Parameter> parameters;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, line, returnType, parameters)
+    unsigned location;
+    std::vector<std::unique_ptr<Statement>> body;
+    std::string returnType;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, location, body, returnType)
 };
 
-struct Section
+struct ExpressionStatement : Statement
+{
+    std::unique_ptr<Expression> expression;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ExpressionStatement, expression)
+    void serialise(json &j) const override { j = *this; j["kind"] = "ExpressionStatement"; }
+};
+
+struct VariableDeclarationStatement : Statement
+{
+    VariableDeclaration variable;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclarationStatement, variable)
+    void serialise(json &j) const override { j = *this; j["kind"] = "VariableDeclarationStatement"; }
+};
+
+struct ReturnStatement : Statement
+{
+    std::unique_ptr<Expression> value;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ReturnStatement, value)
+    void serialise(json &j) const override { j = *this; j["kind"] = "ReturnStatement"; }
+};
+
+struct Section : Statement
 {
     std::string name;
-    int line;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Section, name, line)
+    std::vector<std::unique_ptr<Statement>> body;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Section, name, body)
+    void serialise(json &j) const override { j = *this; j["kind"] = "Section"; }
+};
+
+enum class AssertionType
+{
+    Require,
+    RequireFalse,
+    Check,
+    CheckFalse
+};
+
+struct AssertionStatement : Statement
+{
+    AssertionType type;
+    std::unique_ptr<Expression> expression;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(AssertionStatement, type, expression)
+    void serialise(json &j) const override { j = *this; j["kind"] = "AssertionStatement"; }
 };
 
 struct TestCase
 {
     std::string name;
     std::vector<std::string> tags;
-    int line;
-    std::vector<Section> sections;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, line, sections)
+    unsigned location;
+    std::vector<std::unique_ptr<Statement>> body;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, location, body)
 };
 
 struct TestFile
@@ -124,6 +185,26 @@ struct TestFile
     std::vector<TestCase> tests;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestFile, filename, globals, functions, tests)
 };
+
+enum class MacroKind
+{
+    TestCase,
+    Section,
+    Require,
+    Check,
+    RequireFalse,
+    CheckFalse
+};
+
+struct MacroInfo
+{
+    MacroKind kind;
+    clang::SourceLocation location;
+    std::string name;
+    std::vector<std::string> tags;
+};
+
+std::unordered_map<unsigned, MacroInfo> macros;
 
 // Builds a data structure for a custom AST
 class TranslationBuilder
@@ -144,6 +225,11 @@ public:
     int getLineNumber(const clang::Decl *decl)
     {
         return sourceManager.getSpellingLineNumber(decl->getLocation());
+    }
+
+    unsigned getLocationKey(clang::SourceLocation loc)
+    {
+        return sourceManager.getExpansionLoc(loc).getRawEncoding();
     }
 
     // Gets the source text of a given expression (e.g. "x + 5")  
@@ -181,7 +267,9 @@ public:
             return buildLiteral(expr);
         }
 
+        std::cout << "Unsupported expression found at line " << sourceManager.getSpellingLineNumber(expr->getExprLoc()) << std::endl;
         throw std::runtime_error("Unsupported expression");
+
     }
 
     // Build a variable declaration
@@ -190,7 +278,8 @@ public:
         VariableDeclaration result;
 
         result.name = var->getNameAsString();
-        result.line = getLineNumber(var);
+        // result.line = getLineNumber(var);
+        result.location = getLocationKey(var->getLocation());
         result.type = var->getType().getAsString();
 
         // Is it initialised?
@@ -227,7 +316,8 @@ public:
         // Use getQualifiedNameAsString(); to check for SplashKit functions "splashkit_lib::draw_bitmap"
 
         result.name = fn->getNameAsString();
-        result.line = getLineNumber(fn);
+        // result.line = getLineNumber(fn);
+        result.location = getLocationKey(fn->getLocation());
         result.returnType = fn->getReturnType().getAsString();
 
         // Get params
@@ -243,6 +333,111 @@ public:
         return result;
     }
 
+    // Dispatcher for building macros
+    std::unique_ptr<Statement> buildMacro(clang::Stmt *stmt, const MacroInfo &macroInfo)
+    {
+        switch (macroInfo.kind)
+        {
+            case MacroKind::Section:
+            {
+                auto result = std::make_unique<Section>();
+                result->name = macroInfo.name;
+                // Build the body
+                return result;
+            }
+                
+            case MacroKind::Require:
+            {
+                auto result = std::make_unique<AssertionStatement>();
+                result->type = AssertionType::Require;
+
+                if (auto *expr = llvm::dyn_cast<clang::CallExpr>(stmt))
+                {
+                    // REQUIRE(condition)
+                    if (expr->getNumArgs() > 0)
+                    {
+                        result->expression = buildExpression(expr->getArg(0));
+                    }
+                }
+                return result;
+            }
+
+            default:
+                auto result = std::make_unique<AssertionStatement>();
+                return result;
+        }
+    }
+
+    std::unique_ptr<Statement> buildStatement(clang::Stmt *stmt)
+    {
+        // Start by checking for macros
+        // Get the key for this location
+        unsigned key = getLocationKey(stmt->getBeginLoc());
+
+        // Check for any macros at this location
+        auto it = macros.find(key);
+
+        // If there is one, build it
+        if (it != macros.end())
+        {
+            return buildMacro(stmt, it->second);
+        }
+        // Declaration statement
+        else if (auto *declStmt = llvm::dyn_cast<clang::DeclStmt>(stmt))
+        {
+            // Check declarations
+            for (clang::Decl *decl : declStmt->decls())
+            {
+                // Variable declaration
+                if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
+                {
+                    auto result = std::make_unique<VariableDeclarationStatement>();;
+                    result->variable = buildVariableDeclaration(var);
+                    return result;
+                }
+            }
+        }
+
+        // if (auto *call = llvm::dyn_cast<clang::CallExpr>(stmt))
+        // {
+        //     return buildFunctionCall(call);
+        // }
+
+        // if (auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt))
+        // {
+        //     return buildIfStatement(ifStmt);
+        // }
+
+        return nullptr;
+    }
+
+    // Build a test case
+    TestCase buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo)
+    {
+        TestCase testCase;
+
+        // Utilise macro info obtained by the preprocessor
+        testCase.name = macroInfo.name;
+        // testCase.line = getLineNumber(func);
+        testCase.location = getLocationKey(macroInfo.location);
+        testCase.tags = macroInfo.tags;
+
+        // Build body
+        clang::Stmt *body = func->getBody();
+        auto *compound = llvm::dyn_cast<clang::CompoundStmt>(body);
+        if (!compound) return testCase;
+
+        // For every statement
+        for (clang::Stmt *stmt : compound->body())
+        {
+            // Build it, then add it to the test case body
+            std::unique_ptr<Statement> result = buildStatement(stmt);
+            testCase.body.push_back(std::move(result));
+        }
+
+        return testCase;
+    }
+
     // Build a test file (top level)
     void buildTestFile(TestFile &file)
     {
@@ -252,8 +447,12 @@ public:
         // Top-level declarations
         for (clang::Decl *decl : translationUnit->decls())
         {
+            clang::SourceLocation loc = decl->getLocation();
+            clang::SourceLocation expansionLoc =
+                sourceManager.getExpansionLoc(loc);
+
             // If the declaration isn't written in the main file, ignore it
-            if (!sourceManager.isWrittenInMainFile(decl->getLocation()))
+            if (!sourceManager.isWrittenInMainFile(expansionLoc))
             {
                 continue;
             }
@@ -264,11 +463,27 @@ public:
             {
                 file.globals.push_back(buildVariableDeclaration(var));
             }
-
-            // Functions
-            if (auto *var = llvm::dyn_cast<clang::FunctionDecl>(decl))
+            else if (auto *func = llvm::dyn_cast<clang::FunctionDecl>(decl))
             {
-                file.functions.push_back(buildFunction(var));
+                if (func != func->getCanonicalDecl())
+                    continue;
+
+                // Get the key for this location
+                unsigned key = getLocationKey(func->getLocation());
+
+                // Check for any macros at this location
+                auto it = macros.find(key);
+
+                // If there is one, and it's a test case, build it
+                if (it != macros.end() && it->second.kind == MacroKind::TestCase)
+                {
+                    file.tests.push_back(buildTestCase(func, it->second));
+                }
+                // Otherwise it's a top-level function
+                else
+                {
+                    file.functions.push_back(buildFunction(func));
+                }
             }
         }
     }
@@ -325,7 +540,7 @@ private:
     TestFile &file;
     clang::SourceManager &sourceManager;
     clang::Preprocessor &pp;
-    TestCase *currentTest = nullptr;
+    unsigned currentTestKey = 0;
 
 public:
     TestFinder(TestFile &file, clang::SourceManager &sm, clang::Preprocessor &pp)
@@ -342,29 +557,52 @@ public:
     {
         std::string name = macroName.getIdentifierInfo()->getName().str();
 
+        // Record macro info
+        MacroInfo macro;
+        macro.location = sourceManager.getExpansionLoc(range.getBegin());
+        // Get the raw version of location as a key
+        unsigned key = macro.location.getRawEncoding();
+
         if (name == "TEST_CASE")
         {
-            TestCase test;
-            unsigned numArgs = args->getNumMacroArguments();
-            test.name = getMacroArgumentString(args, 0, pp);
+            macro.kind = MacroKind::TestCase;
+            macro.name = getMacroArgumentString(args, 0, pp);
 
             // Add tags
             std::string allTagsString = getMacroArgumentString(args, 2, pp);
-            test.tags = parseTags(allTagsString);
-
-            test.line = sourceManager.getSpellingLineNumber(range.getBegin());
-            file.tests.push_back(test);
-            currentTest = &file.tests.back();
+            macro.tags = parseTags(allTagsString);
+            macros[key] = macro;
+            // std::cout << "- Test case found at " << macro.location.getRawEncoding() << std::endl;
         }
-
         else if (name == "SECTION")
         {
-            if (!currentTest) return;
-            Section section;
-            section.name = getMacroArgumentString(args, 0, pp);
-            section.line = sourceManager.getSpellingLineNumber(range.getBegin());
-            currentTest->sections.push_back(section);
+            macro.kind = MacroKind::Section;
+            macro.name = getMacroArgumentString(args, 0, pp);
+            macros[key] = macro;
+            // std::cout << "- Section found at " << macro.location.getRawEncoding() << std::endl;
         }
+        else if (name == "REQUIRE")
+        {
+            macro.kind = MacroKind::Require;
+            macros[key] = macro;
+        }
+        else if (name == "REQUIRE_FALSE")
+        {
+            macro.kind = MacroKind::RequireFalse;
+            macros[key] = macro;
+        }
+        else if (name == "CHECK")
+        {
+            macro.kind = MacroKind::Check;
+            macros[key] = macro;
+        }
+        else if (name == "CHECK_FALSE")
+        {
+            macro.kind = MacroKind::CheckFalse;
+            macros[key] = macro;
+        }
+        // Track the current test case
+        if (name == "TEST_CASE") currentTestKey = key;
     }
 };
 
@@ -457,6 +695,8 @@ int main(int argc, char** argv) {
         if (entry.path().extension() == ".cpp") {
             std::string stem = entry.path().stem().string();                        // Filename without extension
             if (stem == "unit_test_main" || stem == "logging_handling") continue;   // Skip "main" file
+            if (stem == "unit_test_utilities" || stem == "unit_test_web_server" || stem == "unit_test_bitmap" || stem == "unit_test_network" || stem == "unit_test_json" || stem == "unit_test_sprites" || stem == "unit_test_triangle") continue;
+            // if (stem != "unit_test_test") continue;
 
             cppFiles.push_back(entry.path().string());                              // Add file to list
         }
@@ -474,7 +714,7 @@ int main(int argc, char** argv) {
     parseTestFiles(cppFiles);
 
     // Ensure output directory exists
-    fs::path outputDir = "json";
+    fs::path outputDir = "generated/json";
     fs::create_directories(outputDir);
 
     // Convert and save as JSON
@@ -487,6 +727,40 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "\nSaved " << cppFiles.size() << " tests to " << outputDir << "\n";
+
+    // Generate C#
+    // Ensure output directory exists
+    fs::create_directories("generated/csharp");
+    // Project files
+    std::ofstream projFile("generated/csharp/SplashKit.CSharp.UnitTests.csproj");
+    projFile << R"(<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.2" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+        <PackageReference Include="xunit" Version="2.9.2" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    </ItemGroup>
+
+    <!-- Include C# bindings in project -->
+    <ItemGroup>
+        <Compile Include="../../../../../generated/csharp/SplashKit.cs" />
+    </ItemGroup>
+
+</Project>
+)";
+
+    std::ofstream usingsFile("generated/csharp/GlobalUsings.cs");
+    usingsFile << R"(global using Xunit;
+global using SplashKitSDK;
+global using static SplashKitSDK.SplashKit;)";
  
     return 0;
 }
