@@ -1,23 +1,11 @@
 #pragma once
 
-#include <clang/Tooling/Tooling.h>
-#include <clang/Lex/MacroArgs.h>
-#include <clang/Frontend/CompilerInstance.h>
-#include "clang/AST/Stmt.h"
-#include "clang/Basic/SourceLocation.h"
-#include <clang/Tooling/CompilationDatabase.h>
-#include <clang/Frontend/FrontendActions.h>
-#include <clang/AST/ASTConsumer.h>
-#include <clang/AST/Expr.h>
-#include <clang/AST/Decl.h>
-#include <clang/Lex/Lexer.h>
 #include <clang/AST/RecursiveASTVisitor.h>
-
 #include "ast.h"
 #include "macro.h"
 
 // Builds a data structure for a custom AST
-class TranslationBuilder
+class ASTBuilder
 {
 private:
     // Need source manager for info about the source file (like line numbers)
@@ -26,7 +14,7 @@ private:
     std::unordered_map<unsigned, MacroInfo> &macros;
 
 public:
-    TranslationBuilder(clang::ASTContext &context, std::unordered_map<unsigned, MacroInfo> &macros)
+    ASTBuilder(clang::ASTContext &context, std::unordered_map<unsigned, MacroInfo> &macros)
         : context(context),
           sourceManager(context.getSourceManager()),
           macros(macros)
@@ -78,6 +66,6 @@ public:
     // Build a test case
     TestCase buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo);
 
-    // Build a test file (top level)
-    void buildTestFile(TestFile &file);
+    // Build a custom AST
+    void buildAST(CustomAST &AST);
 };

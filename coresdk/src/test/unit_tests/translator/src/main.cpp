@@ -1,24 +1,15 @@
-#include <clang/Tooling/CompilationDatabase.h>
-#include <clang/Frontend/FrontendActions.h>
-#include <clang/AST/ASTConsumer.h>
-#include <clang/AST/Expr.h>
-#include <clang/AST/Decl.h>
-#include <clang/Lex/Lexer.h>
-#include <clang/AST/RecursiveASTVisitor.h>
-
-#include <iostream>
-#include <llvm-18/llvm/Support/Casting.h>
 #include <string>
+#include <iostream>
 #include <vector>
 #include <fstream>
-#include <filesystem>
-#include <nlohmann/json.hpp>
 
 #include "parser.h"
 
 namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
+
+    // Set test directory
     std::string testDir = "./../";        // Default to parent directory
     if (argc > 1) testDir = argv[1];
 
@@ -26,32 +17,36 @@ int main(int argc, char** argv) {
  
     // Check the chosen directory exists, and is actually a directory
     std::error_code ec;
-    if (!fs::exists(testDir, ec) || !fs::is_directory(testDir, ec)) {
+    if (!fs::exists(testDir, ec) || !fs::is_directory(testDir, ec))
+    {
         std::cerr << "Error: Directory does not exist or is inaccessible: " << testDir << "\n";
         return 1;
     }
  
     // Add every .cpp file in the directory 
     std::vector<std::string> cppFiles;
-    for (const auto& entry : fs::directory_iterator(testDir)) {
-        if (entry.path().extension() == ".cpp") {
-            std::string stem = entry.path().stem().string();                        // Filename without extension
-            if (stem == "unit_test_main" || stem == "logging_handling") continue;   // Skip "main" file
+    for (const auto& entry : fs::directory_iterator(testDir))
+    {
+        if (entry.path().extension() == ".cpp")
+        {
+            std::string stem = entry.path().stem().string();                       // Filename without extension
+            if (stem == "unit_test_main" || stem == "logging_handling") continue;  // Skip "main" file
             if (stem != "unit_test_test") continue;
 
-            cppFiles.push_back(entry.path().string());                              // Add file to list
+            cppFiles.push_back(entry.path().string());                          // Add file to list
         }
     }
  
     // No valid files found
-    if (cppFiles.empty()) {
+    if (cppFiles.empty())
+    {
         std::cerr << "No .cpp files found in " << testDir << "\n";
         return 1;
     }
  
     std::cout << "Found " << cppFiles.size() << " .cpp files\n\n";
 
-    // Use LibTooling to parse files
+    // Parse files and save out to JSON
     parseTestFiles(cppFiles);
 
     // Generate C#

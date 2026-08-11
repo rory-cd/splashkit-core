@@ -159,11 +159,11 @@ struct TestCase
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, location, body)
 };
 
-struct TestFile
+struct CustomAST
 {
     std::string filename;
     std::vector<VariableDeclaration> globals;
     std::vector<FunctionDeclaration> functions;
     std::vector<TestCase> tests;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestFile, filename, globals, functions, tests)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(CustomAST, filename, globals, functions, tests)
 };

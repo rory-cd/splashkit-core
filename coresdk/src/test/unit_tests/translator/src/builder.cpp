@@ -1,14 +1,4 @@
 #include <clang/Tooling/Tooling.h>
-#include <clang/Lex/MacroArgs.h>
-#include <clang/Frontend/CompilerInstance.h>
-#include "clang/AST/Stmt.h"
-#include "clang/Basic/SourceLocation.h"
-#include <clang/Tooling/CompilationDatabase.h>
-#include <clang/Frontend/FrontendActions.h>
-#include <clang/AST/ASTConsumer.h>
-#include <clang/AST/Expr.h>
-#include <clang/AST/Decl.h>
-#include <clang/Lex/Lexer.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 
 #include <iostream>
@@ -18,18 +8,18 @@
 #include "macro.h"
 
 // Gets the line number of a declaration from the source file
-int TranslationBuilder::getLineNumber(const clang::Decl *decl)
+int ASTBuilder::getLineNumber(const clang::Decl *decl)
 {
     return sourceManager.getSpellingLineNumber(decl->getLocation());
 }
 
-unsigned TranslationBuilder::getLocationKey(clang::SourceLocation loc)
+unsigned ASTBuilder::getLocationKey(clang::SourceLocation loc)
 {
     return sourceManager.getExpansionLoc(loc).getRawEncoding();
 }
 
 // Gets the source text of a given expression (e.g. "x + 5")  
-std::string TranslationBuilder::getSourceText(clang::Expr *expr)
+std::string ASTBuilder::getSourceText(clang::Expr *expr)
 {
     // Token range uses the entire range of the expression
     auto range = clang::CharSourceRange::getTokenRange(expr->getSourceRange());
@@ -41,7 +31,7 @@ std::string TranslationBuilder::getSourceText(clang::Expr *expr)
 }
 
 // Build a literal with a string value 
-std::unique_ptr<Expression> TranslationBuilder::buildLiteral(clang::Expr *expr)
+std::unique_ptr<Expression> ASTBuilder::buildLiteral(clang::Expr *expr)
 {
     auto result = std::make_unique<LiteralExpression>();
 
@@ -61,7 +51,7 @@ std::unique_ptr<Expression> TranslationBuilder::buildLiteral(clang::Expr *expr)
 }
 
 // Build a binary expression
-std::unique_ptr<Expression> TranslationBuilder::buildBinaryExpression(clang::BinaryOperator *binary)
+std::unique_ptr<Expression> ASTBuilder::buildBinaryExpression(clang::BinaryOperator *binary)
 {
     auto result = std::make_unique<BinaryExpression>();
 
@@ -73,7 +63,7 @@ std::unique_ptr<Expression> TranslationBuilder::buildBinaryExpression(clang::Bin
 }
 
 // Build a function call 
-std::unique_ptr<Expression> TranslationBuilder::buildFunctionCall(clang::CallExpr *call, std::string name)
+std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(clang::CallExpr *call, std::string name)
 {
     auto result = std::make_unique<CallExpression>();
     result->functionName = name;
@@ -91,7 +81,7 @@ std::unique_ptr<Expression> TranslationBuilder::buildFunctionCall(clang::CallExp
 }
 
 // Build a reference to something already declared
-std::unique_ptr<Expression> TranslationBuilder::buildReference(clang::DeclRefExpr *ref)
+std::unique_ptr<Expression> ASTBuilder::buildReference(clang::DeclRefExpr *ref)
 {
     auto result = std::make_unique<ReferenceExpression>();
     result->name = ref->getDecl()->getNameAsString();
@@ -99,7 +89,7 @@ std::unique_ptr<Expression> TranslationBuilder::buildReference(clang::DeclRefExp
 }
 
 // Expression dispatcher
-std::unique_ptr<Expression> TranslationBuilder::buildExpression(clang::Expr *expr)
+std::unique_ptr<Expression> ASTBuilder::buildExpression(clang::Expr *expr)
 {
     llvm::outs() << "\nClass: " << expr->getStmtClassName() << "\n";
     llvm::outs() << "Type: " << expr->getType().getAsString() << "\n";
@@ -167,7 +157,7 @@ std::unique_ptr<Expression> TranslationBuilder::buildExpression(clang::Expr *exp
 }
 
 // Build a variable declaration
-VariableDeclaration TranslationBuilder::buildVariableDeclaration(clang::VarDecl *var)
+VariableDeclaration ASTBuilder::buildVariableDeclaration(clang::VarDecl *var)
 {
     VariableDeclaration result;
 
@@ -192,7 +182,7 @@ VariableDeclaration TranslationBuilder::buildVariableDeclaration(clang::VarDecl 
 }
 
 // Build a parameter
-Parameter TranslationBuilder::buildParameter(clang::ParmVarDecl *param)
+Parameter ASTBuilder::buildParameter(clang::ParmVarDecl *param)
 {
     Parameter result;
 
@@ -209,7 +199,7 @@ Parameter TranslationBuilder::buildParameter(clang::ParmVarDecl *param)
 }
 
 // Build a function declaration
-FunctionDeclaration TranslationBuilder::buildFunction(clang::FunctionDecl *fn)
+FunctionDeclaration ASTBuilder::buildFunction(clang::FunctionDecl *fn)
 {
     FunctionDeclaration result;
 
@@ -233,7 +223,10 @@ FunctionDeclaration TranslationBuilder::buildFunction(clang::FunctionDecl *fn)
     return result;
 }
 
-void TranslationBuilder::checkMinAndMax(clang::SourceLocation loc, clang::SourceLocation &min, clang::SourceLocation &max)
+void ASTBuilder::checkMinAndMax(
+    clang::SourceLocation loc,
+    clang::SourceLocation &min,
+    clang::SourceLocation &max)
 {
     if (loc.isInvalid()) return;
 
@@ -259,7 +252,11 @@ void TranslationBuilder::checkMinAndMax(clang::SourceLocation loc, clang::Source
 }
 
 // Recurse through child statements until an expression is found
-clang::Expr* TranslationBuilder::findExpressionInRange(clang::Stmt *stmt, clang::SourceRange targetRange, clang::SourceLocation &min, clang::SourceLocation &max)
+clang::Expr* ASTBuilder::findExpressionInRange(
+    clang::Stmt *stmt,
+    clang::SourceRange targetRange,
+    clang::SourceLocation &min,
+    clang::SourceLocation &max)
 {
     if (!stmt) return nullptr;
 
@@ -308,7 +305,9 @@ clang::Expr* TranslationBuilder::findExpressionInRange(clang::Stmt *stmt, clang:
 }
 
 // Dispatcher for building macros
-std::unique_ptr<Statement> TranslationBuilder::buildMacro(clang::Stmt *stmt, const MacroInfo &macroInfo)
+std::unique_ptr<Statement> ASTBuilder::buildMacro(
+    clang::Stmt *stmt,
+    const MacroInfo &macroInfo)
 {
     std::cout << "Macro: "
         << macroInfo.name
@@ -379,7 +378,7 @@ std::unique_ptr<Statement> TranslationBuilder::buildMacro(clang::Stmt *stmt, con
     }
 }
 
-std::unique_ptr<Statement> TranslationBuilder::buildStatement(clang::Stmt *stmt)
+std::unique_ptr<Statement> ASTBuilder::buildStatement(clang::Stmt *stmt)
 {
     // Start by checking for macros
     // Get the key for this location
@@ -423,7 +422,9 @@ std::unique_ptr<Statement> TranslationBuilder::buildStatement(clang::Stmt *stmt)
 }
 
 // Build a test case
-TestCase TranslationBuilder::buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo)
+TestCase ASTBuilder::buildTestCase(
+    clang::FunctionDecl *func,
+    MacroInfo macroInfo)
 {
     TestCase testCase;
 
@@ -450,7 +451,7 @@ TestCase TranslationBuilder::buildTestCase(clang::FunctionDecl *func, MacroInfo 
 }
 
 // Build a test file (top level)
-void TranslationBuilder::buildTestFile(TestFile &file)
+void ASTBuilder::buildAST(CustomAST &AST)
 {
     // Root node of the AST
     clang::TranslationUnitDecl *translationUnit = context.getTranslationUnitDecl();
@@ -472,7 +473,7 @@ void TranslationBuilder::buildTestFile(TestFile &file)
         // Variables
         if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
         {
-            file.globals.push_back(buildVariableDeclaration(var));
+            AST.globals.push_back(buildVariableDeclaration(var));
         }
         else if (auto *func = llvm::dyn_cast<clang::FunctionDecl>(decl))
         {
@@ -488,12 +489,12 @@ void TranslationBuilder::buildTestFile(TestFile &file)
             // If there is one, and it's a test case, build it
             if (it != macros.end() && it->second.kind == MacroKind::TestCase)
             {
-                file.tests.push_back(buildTestCase(func, it->second));
+                AST.tests.push_back(buildTestCase(func, it->second));
             }
             // Otherwise it's a top-level function
             else
             {
-                file.functions.push_back(buildFunction(func));
+                AST.functions.push_back(buildFunction(func));
             }
         }
     }

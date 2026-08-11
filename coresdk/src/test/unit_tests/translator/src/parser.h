@@ -1,20 +1,6 @@
 #pragma once
 
-#include "parser.h"
-
-#include <clang/Tooling/Tooling.h>
-#include <clang/Lex/MacroArgs.h>
-#include <clang/Frontend/CompilerInstance.h>
-#include "clang/AST/Stmt.h"
-#include "clang/Basic/SourceLocation.h"
-#include <clang/Tooling/CompilationDatabase.h>
 #include <clang/Frontend/FrontendActions.h>
-#include <clang/AST/ASTConsumer.h>
-#include <clang/AST/Expr.h>
-#include <clang/AST/Decl.h>
-#include <clang/Lex/Lexer.h>
-#include <clang/AST/RecursiveASTVisitor.h>
-
 #include <string>
 #include "ast.h"
 
@@ -31,14 +17,14 @@ std::vector<std::string> parseTags(std::string tagString);
 class TestFinder : public clang::PPCallbacks
 {
 private:
-    TestFile &file;
+    CustomAST &AST;
     clang::SourceManager &sourceManager;
     clang::Preprocessor &pp;
     unsigned currentTestKey = 0;
 
 public:
-    TestFinder(TestFile &file, clang::SourceManager &sm, clang::Preprocessor &pp)
-        : file(file), sourceManager(sm), pp(pp)
+    TestFinder(CustomAST &AST, clang::SourceManager &sm, clang::Preprocessor &pp)
+        : AST(AST), sourceManager(sm), pp(pp)
     {
     }
 
@@ -54,10 +40,10 @@ public:
 class TopLevelConsumer : public clang::ASTConsumer
 {
 private:
-    TestFile &file;
+    CustomAST &AST;
 
 public:
-    TopLevelConsumer(TestFile &file) : file(file) { }
+    TopLevelConsumer(CustomAST &AST) : AST(AST) { }
 
     void HandleTranslationUnit(clang::ASTContext &context) override;
 };
@@ -67,7 +53,7 @@ public:
 class TopLevelAction : public clang::ASTFrontendAction
 {
 private:
-    TestFile currentFile;
+    CustomAST AST;
 
 public:
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(
