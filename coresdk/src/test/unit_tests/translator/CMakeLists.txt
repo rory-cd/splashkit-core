@@ -14,6 +14,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Add source files to executable
 add_executable(UnitTestTranslator
     src/main.cpp
+    src/parser.cpp
+    src/builder.cpp
 )
 
 find_package(LLVM REQUIRED CONFIG)      # Find the LLVM installation and use its CMake config
