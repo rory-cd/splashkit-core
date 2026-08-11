@@ -1,4 +1,5 @@
 #include "clang/AST/Stmt.h"
+#include "clang/Basic/SourceLocation.h"
 #include <clang/Tooling/Tooling.h>
 #include <clang/Tooling/CompilationDatabase.h>
 #include <clang/Frontend/FrontendActions.h>
@@ -53,11 +54,11 @@ struct LiteralExpression : Expression
     void serialise(json &j) const override { j = *this; j["kind"] = "LiteralExpression"; }
 };
 
-struct VariableReferenceExpression : Expression
+struct ReferenceExpression : Expression
 {
     std::string name;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableReferenceExpression, name)
-    void serialise(json &j) const override { j = *this; j["kind"] = "VariableReferenceExpression"; }
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ReferenceExpression, name)
+    void serialise(json &j) const override { j = *this; j["kind"] = "ReferenceExpression"; }
 };
 
 struct CallExpression : Expression
@@ -82,8 +83,11 @@ struct VariableDeclaration
     std::string name;
     unsigned location;
     std::string type;
+    bool isConst;
+    bool isPointer = false;
+    bool isReference = false;
     std::unique_ptr<Expression> initializer;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, location, type, initializer)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, location, type, isConst, isPointer, isReference, initializer)
 };
 
 struct Parameter
@@ -200,8 +204,10 @@ struct MacroInfo
 {
     MacroKind kind;
     clang::SourceLocation location;
+    clang::SourceRange argumentRange;
     std::string name;
     std::vector<std::string> tags;
+    // clang::MacroArgs *args;
 };
 
 std::unordered_map<unsigned, MacroInfo> macros;
@@ -249,15 +255,66 @@ public:
     {
         auto result = std::make_unique<LiteralExpression>();
 
-        result->type = expr->getType().getAsString();
-        result->value = getSourceText(expr);
+        // String literal
+        if (auto *literal = llvm::dyn_cast<clang::StringLiteral>(expr))
+        {
+            result->value = literal->getString().str();
+            result->type = "string";                        // This ensures the type isn't "const char[9]" - not useful for translation
+        }
+        else
+        {
+            result->value = getSourceText(expr);
+            result->type = expr->getType().getAsString();
+        }
 
+        return result;
+    }
+
+    // Build a binary expression
+    std::unique_ptr<Expression> buildBinaryExpression(clang::BinaryOperator *binary)
+    {
+        auto result = std::make_unique<BinaryExpression>();
+
+        result->op = binary->getOpcodeStr().str();
+        result->left = buildExpression(binary->getLHS());
+        result->right = buildExpression(binary->getRHS());
+
+        return result;
+    }
+
+    // Build a function call 
+    std::unique_ptr<Expression> buildFunctionCall(clang::CallExpr *call, std::string name)
+    {
+        auto result = std::make_unique<CallExpression>();
+        result->functionName = name;
+
+        int numArgs = call->getNumArgs();
+
+        // Add all arguments
+        for (int i = 0; i < numArgs; i++)
+        {
+            auto currentArg = call->getArg(i);
+            result->arguments.push_back(buildExpression(currentArg));
+        }
+
+        return result;
+    }
+
+    // Build a reference to something already declared
+    std::unique_ptr<Expression> buildReference(clang::DeclRefExpr *ref)
+    {
+        auto result = std::make_unique<ReferenceExpression>();
+        result->name = ref->getDecl()->getNameAsString();
         return result;
     }
 
     // Expression dispatcher
     std::unique_ptr<Expression> buildExpression(clang::Expr *expr)
     {
+        llvm::outs() << "\nClass: " << expr->getStmtClassName() << "\n";
+        llvm::outs() << "Type: " << expr->getType().getAsString() << "\n";
+
+        // clang::Expr *cleanExpr = expr->IgnoreImplicit();
         // Literals
         if (llvm::isa<clang::IntegerLiteral>(expr) ||
             llvm::isa<clang::FloatingLiteral>(expr) ||
@@ -266,6 +323,53 @@ public:
         {
             return buildLiteral(expr);
         }
+        else if (auto *binary = llvm::dyn_cast<clang::BinaryOperator>(expr))
+        {
+            return buildBinaryExpression(binary);
+        }
+        // Reference to variable, function, enum, etc.
+        else if (auto *ref = llvm::dyn_cast<clang::DeclRefExpr>(expr))
+        {
+            return buildReference(ref);
+        }
+        // Calls
+        else if (auto *call = llvm::dyn_cast<clang::CallExpr>(expr))
+        {
+            // Function call
+            if (auto *funcDecl = call->getDirectCallee())
+            {
+                return buildFunctionCall(call, funcDecl->getNameAsString());
+            }
+        }
+        // Implicit casts (unwrap them)
+        else if (auto *cast = llvm::dyn_cast<clang::ImplicitCastExpr>(expr))
+        {
+            return buildExpression(cast->getSubExpr());
+        }
+        // // Expressions with cleanups (cleang lifetime management - unwrap)
+        // else if (auto *cleanups = llvm::dyn_cast<clang::ExprWithCleanups>(expr))
+        // {
+        //     return buildExpression(cleanups->getSubExpr());
+        // }
+        // // Constructor expressions (like C++ making a string() object for a string literal) - unwrap
+        // else if (auto *construct = llvm::dyn_cast<clang::CXXConstructExpr>(expr))
+        // {
+        //     return buildExpression(construct->getArg(0));
+        // }
+        // // Another clang wrapper for memory management - unwrap
+        // else if (auto *bind = llvm::dyn_cast<clang::CXXBindTemporaryExpr>(expr))
+        // {
+        //     return buildExpression(bind->getSubExpr());
+        // }
+        // // Another clang wrapper for memory management - unwrap
+        // else if (auto *mat = llvm::dyn_cast<clang::MaterializeTemporaryExpr>(expr))
+        // {
+        //     return buildExpression(mat->getSubExpr());
+        // }
+        // else if (auto *cast = llvm::dyn_cast<clang::CStyleCastExpr>(expr))
+        // {
+        //     return buildExpression(cast->getSubExpr());
+        // }
 
         std::cout << "Unsupported expression found at line " << sourceManager.getSpellingLineNumber(expr->getExprLoc()) << std::endl;
         throw std::runtime_error("Unsupported expression");
@@ -280,7 +384,13 @@ public:
         result.name = var->getNameAsString();
         // result.line = getLineNumber(var);
         result.location = getLocationKey(var->getLocation());
-        result.type = var->getType().getAsString();
+
+        // Split type into more detail
+        clang::QualType type = var->getType();
+        result.type = type.getUnqualifiedType().getAsString();
+        result.isConst = type.isConstQualified();
+        result.isPointer = type->isPointerType();
+        result.isReference = type->isReferenceType();
 
         // Is it initialised?
         if (var->hasInit())
@@ -333,36 +443,147 @@ public:
         return result;
     }
 
+    void checkMinAndMax(clang::SourceLocation loc, clang::SourceLocation &min, clang::SourceLocation &max)
+    {
+        if (loc.isInvalid()) return;
+
+        clang::SourceLocation spelling = sourceManager.getSpellingLoc(loc);
+
+        // Not defined in main file - ignore
+        if (sourceManager.getFileID(spelling) != sourceManager.getMainFileID())
+            return;
+
+        // If this the earliest location yet?
+        if (min.isInvalid() ||
+            sourceManager.isBeforeInTranslationUnit(spelling, min))
+        {
+            min = spelling;
+        }
+
+        // Is this the latest location yet?
+        if (max.isInvalid() ||
+            sourceManager.isBeforeInTranslationUnit(max, spelling))
+        {
+            max = spelling;
+        }
+    }
+
+    // Recurse through child statements until an expression is found
+    clang::Expr* findExpressionInRange(clang::Stmt *stmt, clang::SourceRange targetRange, clang::SourceLocation &min, clang::SourceLocation &max)
+    {
+        if (!stmt) return nullptr;
+
+        clang::SourceLocation childMin;
+        clang::SourceLocation childMax;
+
+        // Search children first, so we get the smallest matching expression.
+        for (clang::Stmt *child : stmt->children())
+        {
+            // If we found a match in the children, return it
+            if (auto *result = findExpressionInRange(child, targetRange, childMin, childMax))
+                return result;
+        }
+
+        // Now we're at the bottom
+        if (auto *expr = llvm::dyn_cast<clang::Expr>(stmt))
+        {
+            // Check if this expression is the new min or max of the range
+            checkMinAndMax(expr->getBeginLoc(), min, max);
+            checkMinAndMax(expr->getEndLoc(), min, max);
+
+            std::cout << expr->getStmtClassName() << ": "
+                << min.printToString(sourceManager)
+                << " -> "
+                << max.printToString(sourceManager)
+                << '\n';
+
+            // Normalise target locations in the same way.
+            clang::SourceLocation targetBegin =
+                sourceManager.getSpellingLoc(targetRange.getBegin());
+
+            clang::SourceLocation targetEnd =
+                sourceManager.getSpellingLoc(targetRange.getEnd());
+
+            if (childMin.isValid() && childMax.isValid() && childMin == targetBegin && childMax == targetEnd)
+            {
+                std::cout << "MATCH: "
+                        << stmt->getStmtClassName()
+                        << '\n';
+
+                return expr;
+            }
+        }
+
+        return nullptr;
+    }
+
     // Dispatcher for building macros
     std::unique_ptr<Statement> buildMacro(clang::Stmt *stmt, const MacroInfo &macroInfo)
     {
+        std::cout << "Macro: "
+            << macroInfo.name
+            << '\n';
+
+        stmt->dump();
+
         switch (macroInfo.kind)
         {
             case MacroKind::Section:
             {
+                std::cout << "Section macro: " << macroInfo.name << std::endl;
                 auto result = std::make_unique<Section>();
                 result->name = macroInfo.name;
-                // Build the body
+
+                // The SECTION macro becomes an if statement during compilation
+                auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt);
+
+                if (!ifStmt)
+                    return result;
+
+                // The block of the if statement becomes the "body" of the section
+                auto *compound =
+                    llvm::dyn_cast<clang::CompoundStmt>(ifStmt->getThen());
+
+                if (!compound)
+                    return result;
+
+                // Add each statement to the section body
+                for (clang::Stmt *child : compound->body())
+                {
+                    auto statement = buildStatement(child);
+                    if (statement) result->body.push_back(std::move(statement));
+                }
+
                 return result;
             }
                 
             case MacroKind::Require:
             {
+                std::cout << "Require macro: " << macroInfo.name << std::endl;
                 auto result = std::make_unique<AssertionStatement>();
                 result->type = AssertionType::Require;
 
-                if (auto *expr = llvm::dyn_cast<clang::CallExpr>(stmt))
+                clang::SourceLocation min;
+                clang::SourceLocation max;
+                auto argument = findExpressionInRange(stmt, macroInfo.argumentRange, min, max);
+                
+                if (!argument)
                 {
-                    // REQUIRE(condition)
-                    if (expr->getNumArgs() > 0)
-                    {
-                        result->expression = buildExpression(expr->getArg(0));
-                    }
+                    std::cout << "findExpressionInRange returned nullptr!" << std::endl;
+                    return result;
                 }
+
+                std::cout << "Found argument: "
+                        << argument->getStmtClassName()
+                        << std::endl;
+                
+                result->expression = buildExpression(argument);
+
                 return result;
             }
 
             default:
+            std::cout << "Macro: " << "DUNNO" << std::endl;
                 auto result = std::make_unique<AssertionStatement>();
                 return result;
         }
@@ -572,34 +793,47 @@ public:
             std::string allTagsString = getMacroArgumentString(args, 2, pp);
             macro.tags = parseTags(allTagsString);
             macros[key] = macro;
-            // std::cout << "- Test case found at " << macro.location.getRawEncoding() << std::endl;
+            std::cout << "- Test case found at " << macro.location.getRawEncoding() << std::endl;
         }
         else if (name == "SECTION")
         {
             macro.kind = MacroKind::Section;
             macro.name = getMacroArgumentString(args, 0, pp);
             macros[key] = macro;
-            // std::cout << "- Section found at " << macro.location.getRawEncoding() << std::endl;
+            std::cout << "- Section found at " << macro.location.getRawEncoding() << std::endl;
         }
         else if (name == "REQUIRE")
         {
             macro.kind = MacroKind::Require;
+            const clang::Token *tokens = args->getUnexpArgument(0);
+            unsigned numTokens = args->getArgLength(tokens);
+            // unsigned numTokens = args->getArgLength(0);
+            // Get the location of the first and last tokens in the unexpanded arguments
+            clang::SourceLocation begin = tokens[0].getLocation();
+            clang::SourceLocation end = tokens[numTokens - 1].getLocation();
+
+            macro.argumentRange = clang::SourceRange(begin, end);
             macros[key] = macro;
+            std::cout << "Inserted require macro" << std::endl;
+            std::cout << "Require args between: " << macro.argumentRange.getBegin().getRawEncoding() << " and " << macro.argumentRange.getEnd().getRawEncoding() << std::endl;
         }
         else if (name == "REQUIRE_FALSE")
         {
             macro.kind = MacroKind::RequireFalse;
             macros[key] = macro;
+            std::cout << "- Require false found at " << macro.location.getRawEncoding() << std::endl;
         }
         else if (name == "CHECK")
         {
             macro.kind = MacroKind::Check;
             macros[key] = macro;
+            std::cout << "- Check found at " << macro.location.getRawEncoding() << std::endl;
         }
         else if (name == "CHECK_FALSE")
         {
             macro.kind = MacroKind::CheckFalse;
             macros[key] = macro;
+            std::cout << "- Check false found at " << macro.location.getRawEncoding() << std::endl;
         }
         // Track the current test case
         if (name == "TEST_CASE") currentTestKey = key;
@@ -695,8 +929,7 @@ int main(int argc, char** argv) {
         if (entry.path().extension() == ".cpp") {
             std::string stem = entry.path().stem().string();                        // Filename without extension
             if (stem == "unit_test_main" || stem == "logging_handling") continue;   // Skip "main" file
-            if (stem == "unit_test_utilities" || stem == "unit_test_web_server" || stem == "unit_test_bitmap" || stem == "unit_test_network" || stem == "unit_test_json" || stem == "unit_test_sprites" || stem == "unit_test_triangle") continue;
-            // if (stem != "unit_test_test") continue;
+            if (stem != "unit_test_test") continue;
 
             cppFiles.push_back(entry.path().string());                              // Add file to list
         }
