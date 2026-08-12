@@ -16,6 +16,7 @@ add_executable(UnitTestTranslator
     src/main.cpp
     src/parser.cpp
     src/builder.cpp
+    src/translator.cpp
 )
 
 find_package(LLVM REQUIRED CONFIG)      # Find the LLVM installation and use its CMake config

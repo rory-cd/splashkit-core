@@ -1,16 +1,18 @@
+#include <filesystem>
 #include <string>
 #include <iostream>
 #include <vector>
-#include <fstream>
 
 #include "parser.h"
+#include "translator.h"
 
 namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
 
-    // Set test directory
-    std::string testDir = "./../";        // Default to parent directory
+    // Set test directory (Default to parent directory)
+    fs::path pwd = fs::current_path();
+    fs::path testDir = pwd.has_parent_path() ? pwd.parent_path() : pwd;
     if (argc > 1) testDir = argv[1];
 
     std::cout << "Scanning directory: " << testDir << "\n\n";
@@ -33,7 +35,7 @@ int main(int argc, char** argv) {
             if (stem == "unit_test_main" || stem == "logging_handling") continue;  // Skip "main" file
             if (stem != "unit_test_test") continue;
 
-            cppFiles.push_back(entry.path().string());                          // Add file to list
+            cppFiles.push_back(entry.path());                          // Add file to list
         }
     }
  
@@ -46,42 +48,13 @@ int main(int argc, char** argv) {
  
     std::cout << "Found " << cppFiles.size() << " .cpp files\n\n";
 
-    // Parse files and save out to JSON
-    parseTestFiles(cppFiles);
+    // Parse files
+    auto jsonFiles = parseTestFiles(cppFiles);
 
-    // Generate C#
-    // Ensure output directory exists
-    fs::create_directories("generated/csharp");
-    // Project files
-    std::ofstream projFile("generated/csharp/SplashKit.CSharp.UnitTests.csproj");
-    projFile << R"(<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <IsPackable>false</IsPackable>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="coverlet.collector" Version="6.0.2" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-        <PackageReference Include="xunit" Version="2.9.2" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    </ItemGroup>
-
-    <!-- Include C# bindings in project -->
-    <ItemGroup>
-        <Compile Include="../../../../../generated/csharp/SplashKit.cs" />
-    </ItemGroup>
-
-</Project>
-)";
-
-    std::ofstream usingsFile("generated/csharp/GlobalUsings.cs");
-    usingsFile << R"(global using Xunit;
-global using SplashKitSDK;
-global using static SplashKitSDK.SplashKit;)";
+    // Translate the files to C#
+    CSharpTranslator translator;
+    fs::path outputDir = pwd / "generated" / "csharp";
+    translator.translateFiles(jsonFiles, outputDir);
  
     return 0;
 }

@@ -5,6 +5,7 @@
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Tooling/CompilationDatabase.h>
 
+#include <filesystem>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -163,16 +164,20 @@ std::unique_ptr<clang::ASTConsumer> TopLevelAction::CreateASTConsumer(
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-void parseTestFiles(const std::vector<std::string> &filepaths)
+std::vector<fs::path> parseTestFiles(const std::vector<std::string> &filepaths)
 {
+    fs::path pwd = fs::current_path();
+    fs::path srcDir = fs::path("..") / ".." / "..";
+    fs::path externalDir = srcDir / ".." / "external";
+
     // Use these arguments when compiling ("Fixed" because it doesn't change per file)
     clang::tooling::FixedCompilationDatabase compilations(
-        ".",    // Paths relative to this dir
+        pwd.string(),    // Paths relative to this dir
         {
-            "-I../../../backend",
-            "-I../../../../external/catch",
-            "-I../../../../external/easyloggingpp",
-            "-I../../../coresdk"
+            "-I" + (srcDir / "backend").string(),
+            "-I" + (externalDir / "catch").string(),
+            "-I" + (externalDir / "easyloggingpp").string(),
+            "-I" + (srcDir / "coresdk").string()
         });
 
     // Create a tool and assign the filepaths
@@ -182,8 +187,10 @@ void parseTestFiles(const std::vector<std::string> &filepaths)
     tool.run(clang::tooling::newFrontendActionFactory<TopLevelAction>().get());
 
     // Ensure output directory exists
-    fs::path outputDir = "generated/json";
+    fs::path outputDir = pwd / "generated" / "json";
     fs::create_directories(outputDir);
+
+    std::vector<fs::path> jsonFiles;
 
     // Convert and save as JSON
     for (const auto &test : allASTs)
@@ -192,7 +199,9 @@ void parseTestFiles(const std::vector<std::string> &filepaths)
         fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
         std::ofstream file(outputFile);
         file << j.dump(4);
+        jsonFiles.push_back(outputFile);
     }
 
     std::cout << "\nSaved " << filepaths.size() << " tests to " << outputDir << "\n";
+    return jsonFiles;
 }

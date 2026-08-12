@@ -4,6 +4,8 @@
 #include <string>
 #include "ast.h"
 
+namespace fs = std::filesystem;
+
 std::string getMacroArgumentString(
     const clang::MacroArgs *args,
     unsigned tokenIndex,
@@ -64,4 +66,4 @@ public:
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-void parseTestFiles(const std::vector<std::string>& filepaths);
+std::vector<fs::path> parseTestFiles(const std::vector<std::string>& filepaths);
