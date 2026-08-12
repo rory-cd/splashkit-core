@@ -59,13 +59,11 @@ struct BinaryExpression : Expression
 struct VariableDeclaration
 {
     std::string name;
-    unsigned location;
     std::string type;
     bool isConst;
     bool isPointer = false;
-    bool isReference = false;
     std::unique_ptr<Expression> initializer;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, location, type, isConst, isPointer, isReference, initializer)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, type, isConst, isPointer, initializer)
 };
 
 struct Parameter
@@ -98,11 +96,10 @@ inline void to_json(json &j, const std::unique_ptr<Statement> &e)
 struct FunctionDeclaration
 {
     std::string name;
-    std::vector<Parameter> parameters;
-    unsigned location;
+    std::vector<std::unique_ptr<Parameter>> parameters;
     std::vector<std::unique_ptr<Statement>> body;
     std::string returnType;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, location, body, returnType)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType)
 };
 
 struct ExpressionStatement : Statement
@@ -114,10 +111,23 @@ struct ExpressionStatement : Statement
 
 struct VariableDeclarationStatement : Statement
 {
-    VariableDeclaration variable;
+    std::unique_ptr<VariableDeclaration> variable;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclarationStatement, variable)
     void serialise(json &j) const override { j = *this; j["kind"] = "VariableDeclarationStatement"; }
 };
+
+// Defines how nlohmann/json converts this type (VariableDeclarationStatement) to json
+inline void to_json(json &j, const VariableDeclarationStatement &e)
+{
+    e.serialise(j);
+}
+
+// Defines how nlohmann/json converts this type (Unique pointer to VariableDeclarationStatement) to json
+inline void to_json(json &j, const std::unique_ptr<VariableDeclarationStatement> &e)
+{
+    if (e) e->serialise(j);
+    else   j = nullptr;
+}
 
 struct ReturnStatement : Statement
 {
@@ -154,16 +164,15 @@ struct TestCase
 {
     std::string name;
     std::vector<std::string> tags;
-    unsigned location;
     std::vector<std::unique_ptr<Statement>> body;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, location, body)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, body)
 };
 
 struct CustomAST
 {
     std::string filename;
-    std::vector<VariableDeclaration> globals;
-    std::vector<FunctionDeclaration> functions;
-    std::vector<TestCase> tests;
+    std::vector<std::unique_ptr<VariableDeclarationStatement>> globals;
+    std::vector<std::unique_ptr<FunctionDeclaration>> functions;
+    std::vector<std::unique_ptr<TestCase>> tests;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(CustomAST, filename, globals, functions, tests)
 };

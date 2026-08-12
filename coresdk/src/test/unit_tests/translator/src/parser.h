@@ -66,4 +66,4 @@ public:
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-std::vector<fs::path> parseTestFiles(const std::vector<std::string>& filepaths);
+std::vector<CustomAST>* parseTestFiles(const std::vector<std::string>& filepaths);

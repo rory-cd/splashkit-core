@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 
+#include "ast.h"
 #include "parser.h"
 #include "translator.h"
 
@@ -49,12 +50,12 @@ int main(int argc, char** argv) {
     std::cout << "Found " << cppFiles.size() << " .cpp files\n\n";
 
     // Parse files
-    auto jsonFiles = parseTestFiles(cppFiles);
+    std::vector<CustomAST> *allASTs = parseTestFiles(cppFiles);
 
     // Translate the files to C#
     CSharpTranslator translator;
     fs::path outputDir = pwd / "generated" / "csharp";
-    translator.translateFiles(jsonFiles, outputDir);
+    translator.translateASTSet(*allASTs, outputDir);
  
     return 0;
 }

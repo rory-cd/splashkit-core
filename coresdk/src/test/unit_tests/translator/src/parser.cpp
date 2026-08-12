@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 
+#include "ast.h"
 #include "builder.h"
 #include "macro.h"
 
@@ -164,7 +165,7 @@ std::unique_ptr<clang::ASTConsumer> TopLevelAction::CreateASTConsumer(
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-std::vector<fs::path> parseTestFiles(const std::vector<std::string> &filepaths)
+std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths)
 {
     fs::path pwd = fs::current_path();
     fs::path srcDir = fs::path("..") / ".." / "..";
@@ -190,18 +191,16 @@ std::vector<fs::path> parseTestFiles(const std::vector<std::string> &filepaths)
     fs::path outputDir = pwd / "generated" / "json";
     fs::create_directories(outputDir);
 
-    std::vector<fs::path> jsonFiles;
-
     // Convert and save as JSON
-    for (const auto &test : allASTs)
-    {
-        json j = test;
-        fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
-        std::ofstream file(outputFile);
-        file << j.dump(4);
-        jsonFiles.push_back(outputFile);
-    }
+    // for (const auto &test : allASTs)
+    // {
+    //     json j = test;
+    //     fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
+    //     std::ofstream file(outputFile);
+    //     file << j.dump(4);
+    // }
 
     std::cout << "\nSaved " << filepaths.size() << " tests to " << outputDir << "\n";
-    return jsonFiles;
+
+    return &allASTs;
 }

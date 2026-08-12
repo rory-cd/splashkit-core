@@ -45,13 +45,15 @@ public:
     std::unique_ptr<Expression> buildExpression(clang::Expr *expr);
 
     // Build a variable declaration
-    VariableDeclaration buildVariableDeclaration(clang::VarDecl *var);
+    std::unique_ptr<VariableDeclaration> buildVariableDecl(clang::VarDecl *var);
+
+    std::unique_ptr<VariableDeclarationStatement> buildVariableDeclStmt(clang::VarDecl *var);
 
     // Build a parameter
-    Parameter buildParameter(clang::ParmVarDecl *param);
+    std::unique_ptr<Parameter> buildParameter(clang::ParmVarDecl *param);
 
     // Build a function declaration
-    FunctionDeclaration buildFunction(clang::FunctionDecl *fn);
+    std::unique_ptr<FunctionDeclaration> buildFunctionDecl(clang::FunctionDecl *fn);
 
     void checkMinAndMax(clang::SourceLocation loc, clang::SourceLocation &min, clang::SourceLocation &max);
 
@@ -64,7 +66,7 @@ public:
     std::unique_ptr<Statement> buildStatement(clang::Stmt *stmt);
 
     // Build a test case
-    TestCase buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo);
+    std::unique_ptr<TestCase> buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo);
 
     // Build a custom AST
     void buildAST(CustomAST &AST);

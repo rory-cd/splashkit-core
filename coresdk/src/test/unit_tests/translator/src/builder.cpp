@@ -6,6 +6,7 @@
 #include "builder.h"
 #include "ast.h"
 #include "macro.h"
+#include "clang/AST/Stmt.h"
 
 // Gets the line number of a declaration from the source file
 int ASTBuilder::getLineNumber(const clang::Decl *decl)
@@ -157,63 +158,62 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(clang::Expr *expr)
 }
 
 // Build a variable declaration
-VariableDeclaration ASTBuilder::buildVariableDeclaration(clang::VarDecl *var)
+std::unique_ptr<VariableDeclaration> ASTBuilder::buildVariableDecl(clang::VarDecl *var)
 {
-    VariableDeclaration result;
+    auto result = std::make_unique<VariableDeclaration>();
 
-    result.name = var->getNameAsString();
+    result->name = var->getNameAsString();
     // result.line = getLineNumber(var);
-    result.location = getLocationKey(var->getLocation());
+    // result.location = getLocationKey(var->getLocation());
 
     // Split type into more detail
     clang::QualType type = var->getType();
-    result.type = type.getUnqualifiedType().getAsString();
-    result.isConst = type.isConstQualified();
-    result.isPointer = type->isPointerType();
-    result.isReference = type->isReferenceType();
+    result->type = type.getUnqualifiedType().getAsString();
+    result->isConst = type.isConstQualified();
+    result->isPointer = type->isPointerType();
 
     // Is it initialised?
     if (var->hasInit())
     {
-        result.initializer = buildExpression(var->getInit());
+        result->initializer = buildExpression(var->getInit());
     }
 
     return result;
 }
 
 // Build a parameter
-Parameter ASTBuilder::buildParameter(clang::ParmVarDecl *param)
+std::unique_ptr<Parameter> ASTBuilder::buildParameter(clang::ParmVarDecl *param)
 {
-    Parameter result;
+    auto result = std::make_unique<Parameter>();
 
-    result.name = param->getNameAsString();
-    result.type = param->getType().getAsString();
+    result->name = param->getNameAsString();
+    result->type = param->getType().getAsString();
 
     // Is there a default?
     if (param->hasDefaultArg())
     {
-        result.defaultValue = buildExpression(param->getDefaultArg());
+        result->defaultValue = buildExpression(param->getDefaultArg());
     }
 
     return result;
 }
 
 // Build a function declaration
-FunctionDeclaration ASTBuilder::buildFunction(clang::FunctionDecl *fn)
+std::unique_ptr<FunctionDeclaration> ASTBuilder::buildFunctionDecl(clang::FunctionDecl *fn)
 {
-    FunctionDeclaration result;
+    auto result = std::make_unique<FunctionDeclaration>();
 
     // Use getQualifiedNameAsString(); to check for SplashKit functions "splashkit_lib::draw_bitmap"
 
-    result.name = fn->getNameAsString();
+    result->name = fn->getNameAsString();
     // result.line = getLineNumber(fn);
-    result.location = getLocationKey(fn->getLocation());
-    result.returnType = fn->getReturnType().getAsString();
+    // result.location = getLocationKey(fn->getLocation());
+    result->returnType = fn->getReturnType().getAsString();
 
     // Get params
     for (auto *param : fn->parameters())
     {
-        result.parameters.push_back(buildParameter(param));
+        result->parameters.push_back(buildParameter(param));
     }
 
     // Build the function body
@@ -378,6 +378,13 @@ std::unique_ptr<Statement> ASTBuilder::buildMacro(
     }
 }
 
+std::unique_ptr<VariableDeclarationStatement> ASTBuilder::buildVariableDeclStmt(clang::VarDecl *var)
+{
+    auto result = std::make_unique<VariableDeclarationStatement>();;
+    result->variable = buildVariableDecl(var);
+    return result;
+}
+
 std::unique_ptr<Statement> ASTBuilder::buildStatement(clang::Stmt *stmt)
 {
     // Start by checking for macros
@@ -401,9 +408,7 @@ std::unique_ptr<Statement> ASTBuilder::buildStatement(clang::Stmt *stmt)
             // Variable declaration
             if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
             {
-                auto result = std::make_unique<VariableDeclarationStatement>();;
-                result->variable = buildVariableDeclaration(var);
-                return result;
+                return buildVariableDeclStmt(var);
             }
         }
     }
@@ -422,32 +427,32 @@ std::unique_ptr<Statement> ASTBuilder::buildStatement(clang::Stmt *stmt)
 }
 
 // Build a test case
-TestCase ASTBuilder::buildTestCase(
+std::unique_ptr<TestCase> ASTBuilder::buildTestCase(
     clang::FunctionDecl *func,
     MacroInfo macroInfo)
 {
-    TestCase testCase;
+    auto result = std::make_unique<TestCase>();
 
     // Utilise macro info obtained by the preprocessor
-    testCase.name = macroInfo.name;
+    result->name = macroInfo.name;
     // testCase.line = getLineNumber(func);
-    testCase.location = getLocationKey(macroInfo.location);
-    testCase.tags = macroInfo.tags;
+    // testCase.location = getLocationKey(macroInfo.location);
+    result->tags = macroInfo.tags;
 
     // Build body
     clang::Stmt *body = func->getBody();
     auto *compound = llvm::dyn_cast<clang::CompoundStmt>(body);
-    if (!compound) return testCase;
+    if (!compound) return result;
 
     // For every statement
     for (clang::Stmt *stmt : compound->body())
     {
         // Build it, then add it to the test case body
-        std::unique_ptr<Statement> result = buildStatement(stmt);
-        testCase.body.push_back(std::move(result));
+        std::unique_ptr<Statement> childStmt = buildStatement(stmt);
+        result->body.push_back(std::move(childStmt));
     }
 
-    return testCase;
+    return result;
 }
 
 // Build a test file (top level)
@@ -473,7 +478,7 @@ void ASTBuilder::buildAST(CustomAST &AST)
         // Variables
         if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
         {
-            AST.globals.push_back(buildVariableDeclaration(var));
+            AST.globals.push_back(buildVariableDeclStmt(var));
         }
         else if (auto *func = llvm::dyn_cast<clang::FunctionDecl>(decl))
         {
@@ -494,7 +499,7 @@ void ASTBuilder::buildAST(CustomAST &AST)
             // Otherwise it's a top-level function
             else
             {
-                AST.functions.push_back(buildFunction(func));
+                AST.functions.push_back(buildFunctionDecl(func));
             }
         }
     }
