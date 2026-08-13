@@ -96,7 +96,7 @@ inline void to_json(json &j, const std::unique_ptr<Statement> &e)
 struct FunctionDeclaration
 {
     std::string name;
-    std::vector<std::unique_ptr<Parameter>> parameters;
+    std::vector<Parameter> parameters;
     std::vector<std::unique_ptr<Statement>> body;
     std::string returnType;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType)
@@ -111,23 +111,10 @@ struct ExpressionStatement : Statement
 
 struct VariableDeclarationStatement : Statement
 {
-    std::unique_ptr<VariableDeclaration> variable;
+    VariableDeclaration variable;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclarationStatement, variable)
     void serialise(json &j) const override { j = *this; j["kind"] = "VariableDeclarationStatement"; }
 };
-
-// Defines how nlohmann/json converts this type (VariableDeclarationStatement) to json
-inline void to_json(json &j, const VariableDeclarationStatement &e)
-{
-    e.serialise(j);
-}
-
-// Defines how nlohmann/json converts this type (Unique pointer to VariableDeclarationStatement) to json
-inline void to_json(json &j, const std::unique_ptr<VariableDeclarationStatement> &e)
-{
-    if (e) e->serialise(j);
-    else   j = nullptr;
-}
 
 struct ReturnStatement : Statement
 {
@@ -171,8 +158,8 @@ struct TestCase
 struct CustomAST
 {
     std::string filename;
-    std::vector<std::unique_ptr<VariableDeclarationStatement>> globals;
-    std::vector<std::unique_ptr<FunctionDeclaration>> functions;
-    std::vector<std::unique_ptr<TestCase>> tests;
+    std::vector<VariableDeclarationStatement> globals;
+    std::vector<FunctionDeclaration> functions;
+    std::vector<TestCase> tests;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(CustomAST, filename, globals, functions, tests)
 };

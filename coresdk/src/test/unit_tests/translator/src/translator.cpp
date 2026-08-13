@@ -67,7 +67,7 @@ void CSharpTranslator::translateAST(
 
     for (auto &test : AST.tests)
     {
-        writeTestCase(*test, file, testCategory, AST.globals, AST.functions);
+        writeTestCase(test, file, testCategory, AST.globals, AST.functions);
     }
 
     
@@ -95,8 +95,8 @@ void CSharpTranslator::writeTestCase(
     const TestCase &testCase,
     std::ofstream &file,
     std::string &category,
-    const std::vector<std::unique_ptr<VariableDeclarationStatement>> &globals,
-    const std::vector<std::unique_ptr<FunctionDeclaration>> &functions)
+    const std::vector<VariableDeclarationStatement> &globals,
+    const std::vector<FunctionDeclaration> &functions)
 {
     // Set category ("unit_test_color" == "Color")
     std::string categoryTrait = "[Trait(\"Category\", \"" + category + "\")]\n";
@@ -129,13 +129,13 @@ void CSharpTranslator::writeTestCase(
     // Global variables
     for (auto &global : globals)
     {
-        writeVarDeclStmt(*global, file);
+        writeVarDeclStmt(global, file);
     }
 
     // Top level functions
     for (auto &func : functions)
     {
-        writeFunctionDecl(*func, file);
+        writeFunctionDecl(func, file);
     }
 
     // CLOSE TEST
@@ -145,9 +145,9 @@ void CSharpTranslator::writeTestCase(
 
 void CSharpTranslator::writeVarDeclStmt(const VariableDeclarationStatement &varDecl, std::ofstream &file)
 {
-    std::string csType = translateType(varDecl.variable->type);
-    std::string varName = varDecl.variable->name;
-    std::string expression = translateExpression(*varDecl.variable->initializer);
+    std::string csType = translateType(varDecl.variable.type);
+    std::string varName = varDecl.variable.name;
+    std::string expression = translateExpression(*varDecl.variable.initializer);
 
     file << indt() << csType + " " + varName << " = ";
     file << expression << ";\n\n";
@@ -221,7 +221,7 @@ void CSharpTranslator::writeFunctionDecl(const FunctionDeclaration &funcDecl, st
         if (i > 0)
             file << ", ";
 
-        file << translateParameter(*funcDecl.parameters[i]);
+        file << translateParameter(funcDecl.parameters[i]);
     }
 
     file << ")\n";

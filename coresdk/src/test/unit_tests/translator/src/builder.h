@@ -22,51 +22,51 @@ public:
     }
 
     // Gets the line number of a declaration from the source file
-    int getLineNumber(const clang::Decl *decl);
+    // int getLineNumber(const clang::Decl *decl);
 
     unsigned getLocationKey(clang::SourceLocation loc);
 
     // Gets the source text of a given expression (e.g. "x + 5")  
-    std::string getSourceText(clang::Expr *expr);
+    std::string getSourceText(const clang::Expr &expr);
 
     // Build a literal with a string value 
-    std::unique_ptr<Expression> buildLiteral(clang::Expr *expr);
+    std::unique_ptr<Expression> buildLiteral(const clang::Expr &expr);
 
     // Build a binary expression
-    std::unique_ptr<Expression> buildBinaryExpression(clang::BinaryOperator *binary);
+    std::unique_ptr<Expression> buildBinaryExpression(const clang::BinaryOperator &binary);
 
     // Build a function call 
-    std::unique_ptr<Expression> buildFunctionCall(clang::CallExpr *call, std::string name);
+    std::unique_ptr<Expression> buildFunctionCall(const clang::CallExpr &call, std::string name);
 
     // Build a reference to something already declared
-    std::unique_ptr<Expression> buildReference(clang::DeclRefExpr *ref);
+    std::unique_ptr<Expression> buildReference(const clang::DeclRefExpr &ref);
 
     // Expression dispatcher
-    std::unique_ptr<Expression> buildExpression(clang::Expr *expr);
+    std::unique_ptr<Expression> buildExpression(const clang::Expr &expr);
 
     // Build a variable declaration
-    std::unique_ptr<VariableDeclaration> buildVariableDecl(clang::VarDecl *var);
+    VariableDeclaration buildVariableDecl(const clang::VarDecl &var);
 
-    std::unique_ptr<VariableDeclarationStatement> buildVariableDeclStmt(clang::VarDecl *var);
+    VariableDeclarationStatement buildVariableDeclStmt(const clang::VarDecl &var);
 
     // Build a parameter
-    std::unique_ptr<Parameter> buildParameter(clang::ParmVarDecl *param);
+    Parameter buildParameter(const clang::ParmVarDecl &param);
 
     // Build a function declaration
-    std::unique_ptr<FunctionDeclaration> buildFunctionDecl(clang::FunctionDecl *fn);
+    FunctionDeclaration buildFunctionDecl(const clang::FunctionDecl &fn);
 
     void checkMinAndMax(clang::SourceLocation loc, clang::SourceLocation &min, clang::SourceLocation &max);
 
     // Recurse through child statements until an expression is found
-    clang::Expr* findExpressionInRange(clang::Stmt *stmt, clang::SourceRange targetRange, clang::SourceLocation &min, clang::SourceLocation &max);
+    const clang::Expr* findExpressionInRange(const clang::Stmt *stmt, const clang::SourceRange targetRange, clang::SourceLocation &min, clang::SourceLocation &max);
 
     // Dispatcher for building macros
-    std::unique_ptr<Statement> buildMacro(clang::Stmt *stmt, const MacroInfo &macroInfo);
+    std::unique_ptr<Statement> buildMacro(const clang::Stmt &stmt, const MacroInfo &macroInfo);
 
-    std::unique_ptr<Statement> buildStatement(clang::Stmt *stmt);
+    std::unique_ptr<Statement> buildStatement(const clang::Stmt &stmt);
 
     // Build a test case
-    std::unique_ptr<TestCase> buildTestCase(clang::FunctionDecl *func, MacroInfo macroInfo);
+    TestCase buildTestCase(const clang::FunctionDecl &func, const MacroInfo &macroInfo);
 
     // Build a custom AST
     void buildAST(CustomAST &AST);

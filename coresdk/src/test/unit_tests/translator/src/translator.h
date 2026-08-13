@@ -34,7 +34,7 @@ private:
 
     void writeProjectFiles(const fs::path &outputDir, const std::string &projectName);
     void translateAST(const CustomAST &AST, const std::string &projectName, const fs::path &outputFilepath);
-    void writeTestCase(const TestCase &testCase, std::ofstream &file, std::string &category, const std::vector<std::unique_ptr<VariableDeclarationStatement>> &globals, const std::vector<std::unique_ptr<FunctionDeclaration>> &functions);
+    void writeTestCase(const TestCase &testCase, std::ofstream &file, std::string &category, const std::vector<VariableDeclarationStatement> &globals, const std::vector<FunctionDeclaration> &functions);
     void translateSection(const Section &section, std::ofstream &file);
     void translateAssertion(const AssertionStatement &assertion, std::ofstream &file);
     void translateStatement(const Statement &statement, std::ofstream &file);
