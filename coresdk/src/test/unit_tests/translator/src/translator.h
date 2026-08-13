@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "ast.h"
@@ -20,8 +19,6 @@ public:
 class CSharpTranslator : Translator
 {
 private:
-    static const std::unordered_map<std::string, std::string> typeMap;
-
     int indentLevel = 0;
     std::string indt() {
         std::string result;
@@ -34,12 +31,13 @@ private:
 
     void writeProjectFiles(const fs::path &outputDir, const std::string &projectName);
     void translateAST(const CustomAST &AST, const std::string &projectName, const fs::path &outputFilepath);
-    void writeTestCase(const TestCase &testCase, std::ofstream &file, std::string &category, const std::vector<VariableDeclarationStatement> &globals, const std::vector<FunctionDeclaration> &functions);
-    void translateSection(const Section &section, std::ofstream &file);
-    void translateAssertion(const AssertionStatement &assertion, std::ofstream &file);
-    void translateStatement(const Statement &statement, std::ofstream &file);
+    void writeTestCase(const TestCase &testCase, std::ofstream &file, std::string category, const std::vector<VariableDeclarationStatement> &globals, const std::vector<FunctionDeclaration> &functions);
+    void writeSection(const Section &section, std::ofstream &file);
+    void writeAssertion(const AssertionStatement &assertion, std::ofstream &file);
+    void writeStatement(const Statement &statement, std::ofstream &file);
     void translateReturnStatement(const ReturnStatement &returnStmt, std::ofstream &file);
     void writeVarDeclStmt(const VariableDeclarationStatement &varDeclStmt, std::ofstream &file);
+    void writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file);
     void translateExprStatement(const ExpressionStatement &exprStmt, std::ofstream &file);
     void writeFunctionDecl(const FunctionDeclaration &funcDecl, std::ofstream &file);
     std::string translateParameter(const Parameter &parameter);
@@ -49,7 +47,8 @@ private:
     std::string translateCallExpr(const CallExpression &expr);
     std::string translateRefExpr(const ReferenceExpression &expr);
     std::string translateLiteralExpr(const LiteralExpression &expr);
-
+    
+    std::string toCamelCase(const std::string &name);
     std::string toPascalCase(const std::string &name);
     std::string translateType(const std::string &cppType);
 

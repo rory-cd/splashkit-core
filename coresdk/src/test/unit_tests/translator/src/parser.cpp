@@ -191,14 +191,14 @@ std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths
     fs::path outputDir = pwd / "generated" / "json";
     fs::create_directories(outputDir);
 
-    // Convert and save as JSON
-    // for (const auto &test : allASTs)
-    // {
-    //     json j = test;
-    //     fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
-    //     std::ofstream file(outputFile);
-    //     file << j.dump(4);
-    // }
+    //Convert and save as JSON
+    for (const auto &test : allASTs)
+    {
+        json j = test;
+        fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
+        std::ofstream file(outputFile);
+        file << j.dump(4);
+    }
 
     std::cout << "\nSaved " << filepaths.size() << " tests to " << outputDir << "\n";
 

@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
         {
             std::string stem = entry.path().stem().string();                       // Filename without extension
             if (stem == "unit_test_main" || stem == "logging_handling") continue;  // Skip "main" file
-            if (stem != "unit_test_test") continue;
+            if (stem != "unit_test_color" && stem != "unit_test_test") continue;
 
             cppFiles.push_back(entry.path());                          // Add file to list
         }

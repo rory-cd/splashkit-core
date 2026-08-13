@@ -127,21 +127,21 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     {
         return buildExpression(*cast->getSubExpr());
     }
-    // // Expressions with cleanups (cleang lifetime management - unwrap)
-    // else if (auto *cleanups = llvm::dyn_cast<clang::ExprWithCleanups>(expr))
-    // {
-    //     return buildExpression(cleanups->getSubExpr());
-    // }
-    // // Constructor expressions (like C++ making a string() object for a string literal) - unwrap
-    // else if (auto *construct = llvm::dyn_cast<clang::CXXConstructExpr>(expr))
-    // {
-    //     return buildExpression(construct->getArg(0));
-    // }
-    // // Another clang wrapper for memory management - unwrap
-    // else if (auto *bind = llvm::dyn_cast<clang::CXXBindTemporaryExpr>(expr))
-    // {
-    //     return buildExpression(bind->getSubExpr());
-    // }
+    // Expressions with cleanups (cleang lifetime management - unwrap)
+    else if (auto *cleanups = llvm::dyn_cast<clang::ExprWithCleanups>(&expr))
+    {
+        return buildExpression(*cleanups->getSubExpr());
+    }
+    // Constructor expressions (like C++ making a string() object for a string literal) - unwrap
+    else if (auto *construct = llvm::dyn_cast<clang::CXXConstructExpr>(&expr))
+    {
+        return buildExpression(*construct->getArg(0));
+    }
+    // Another clang wrapper for memory management - unwrap
+    else if (auto *bind = llvm::dyn_cast<clang::CXXBindTemporaryExpr>(&expr))
+    {
+        return buildExpression(*bind->getSubExpr());
+    }
     // // Another clang wrapper for memory management - unwrap
     // else if (auto *mat = llvm::dyn_cast<clang::MaterializeTemporaryExpr>(expr))
     // {
