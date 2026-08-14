@@ -142,11 +142,11 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     {
         return buildExpression(*bind->getSubExpr());
     }
-    // // Another clang wrapper for memory management - unwrap
-    // else if (auto *mat = llvm::dyn_cast<clang::MaterializeTemporaryExpr>(expr))
-    // {
-    //     return buildExpression(mat->getSubExpr());
-    // }
+    // Another clang wrapper for memory management - unwrap
+    else if (auto *mat = llvm::dyn_cast<clang::MaterializeTemporaryExpr>(&expr))
+    {
+        return buildExpression(*mat->getSubExpr());
+    }
     // else if (auto *cast = llvm::dyn_cast<clang::CStyleCastExpr>(expr))
     // {
     //     return buildExpression(cast->getSubExpr());

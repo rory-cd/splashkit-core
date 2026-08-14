@@ -19,6 +19,7 @@ public:
 class CSharpTranslator : Translator
 {
 private:
+    // Indentation helpers
     int indentLevel = 0;
     std::string indt() {
         std::string result;
@@ -40,6 +41,8 @@ private:
     void writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file);
     void translateExprStatement(const ExpressionStatement &exprStmt, std::ofstream &file);
     void writeFunctionDecl(const FunctionDeclaration &funcDecl, std::ofstream &file);
+
+    // Translation functions (return a string to be written inline)
     std::string translateParameter(const Parameter &parameter);
     std::string translateVarDecl(const VariableDeclaration &varDecl, std::ofstream &file);
     std::string translateExpression(const Expression &expr);
@@ -48,6 +51,7 @@ private:
     std::string translateRefExpr(const ReferenceExpression &expr);
     std::string translateLiteralExpr(const LiteralExpression &expr);
     
+    // String manipulation
     std::string toCamelCase(const std::string &name);
     std::string toPascalCase(const std::string &name);
     std::string translateType(const std::string &cppType);

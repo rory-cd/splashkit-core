@@ -11,24 +11,23 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
 
-    // Set test directory (Default to parent directory)
-    fs::path pwd = fs::current_path();
-    fs::path testDir = pwd.has_parent_path() ? pwd.parent_path() : pwd;
-    if (argc > 1) testDir = argv[1];
+    // Set scan directory (Default to unit test directory)
+    fs::path scanDir = fs::path(SPLASHKIT_TESTS) / "unit_tests";
+    if (argc > 1) scanDir = argv[1];
 
-    std::cout << "Scanning directory: " << testDir << "\n\n";
+    std::cout << "Scanning directory: " << scanDir << "\n\n";
  
     // Check the chosen directory exists, and is actually a directory
     std::error_code ec;
-    if (!fs::exists(testDir, ec) || !fs::is_directory(testDir, ec))
+    if (!fs::exists(scanDir, ec) || !fs::is_directory(scanDir, ec))
     {
-        std::cerr << "Error: Directory does not exist or is inaccessible: " << testDir << "\n";
+        std::cerr << "Error: Directory does not exist or is inaccessible: " << scanDir << "\n";
         return 1;
     }
  
     // Add every .cpp file in the directory 
     std::vector<std::string> cppFiles;
-    for (const auto& entry : fs::directory_iterator(testDir))
+    for (const auto& entry : fs::directory_iterator(scanDir))
     {
         if (entry.path().extension() == ".cpp")
         {
@@ -43,7 +42,7 @@ int main(int argc, char** argv) {
     // No valid files found
     if (cppFiles.empty())
     {
-        std::cerr << "No .cpp files found in " << testDir << "\n";
+        std::cerr << "No .cpp files found in " << scanDir << "\n";
         return 1;
     }
  
@@ -54,7 +53,7 @@ int main(int argc, char** argv) {
 
     // Translate the files to C#
     CSharpTranslator translator;
-    fs::path outputDir = pwd / "generated" / "csharp";
+    fs::path outputDir = fs::path(SPLASHKIT_TESTS) / "unit_tests" / "generated" / "csharp";
     translator.translateASTSet(*allASTs, outputDir);
  
     return 0;

@@ -167,28 +167,24 @@ std::unique_ptr<clang::ASTConsumer> TopLevelAction::CreateASTConsumer(
 // Gives clang the compilation instructions, files, and action it needs to build the AST
 std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths)
 {
-    fs::path pwd = fs::current_path();
-    fs::path srcDir = fs::path("..") / ".." / "..";
-    fs::path externalDir = srcDir / ".." / "external";
-
     // Use these arguments when compiling ("Fixed" because it doesn't change per file)
     clang::tooling::FixedCompilationDatabase compilations(
-        pwd.string(),    // Paths relative to this dir
+        fs::current_path().string(),
         {
-            "-I" + (srcDir / "backend").string(),
-            "-I" + (externalDir / "catch").string(),
-            "-I" + (externalDir / "easyloggingpp").string(),
-            "-I" + (srcDir / "coresdk").string()
+            std::string("-I") + SPLASHKIT_BACKEND,
+            std::string("-I") + SPLASHKIT_CATCH,
+            std::string("-I") + SPLASHKIT_EASYLOGGING,
+            std::string("-I") + SPLASHKIT_CORESDK
         });
 
     // Create a tool and assign the filepaths
     clang::tooling::ClangTool tool(compilations, filepaths);
-
+    std::cout << "Catch: " << SPLASHKIT_CATCH << '\n';
     // For every source file, build a clang AST, create a TopLevelAction, and execute it.
     tool.run(clang::tooling::newFrontendActionFactory<TopLevelAction>().get());
 
     // Ensure output directory exists
-    fs::path outputDir = pwd / "generated" / "json";
+    fs::path outputDir = fs::current_path() / "generated" / "json";
     fs::create_directories(outputDir);
 
     //Convert and save as JSON
