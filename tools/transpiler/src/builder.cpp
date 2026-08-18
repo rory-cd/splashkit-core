@@ -6,6 +6,7 @@
 #include "builder.h"
 #include "ast.h"
 #include "macro.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
 // Gets the line number of a declaration from the source file
@@ -63,6 +64,17 @@ std::unique_ptr<Expression> ASTBuilder::buildBinaryExpression(const clang::Binar
     return result;
 }
 
+// Build a unary expression
+std::unique_ptr<Expression> ASTBuilder::buildUnaryExpression(const clang::UnaryOperator &unary)
+{
+    auto result = std::make_unique<UnaryExpression>();
+
+    result->op = clang::UnaryOperator::getOpcodeStr(unary.getOpcode()).str();
+    result->operand = buildExpression(*unary.getSubExpr());
+
+    return result;
+}
+
 // Build a function call 
 std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(const clang::CallExpr &call, std::string name)
 {
@@ -100,6 +112,8 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     if (llvm::isa<clang::IntegerLiteral>(expr) ||
         llvm::isa<clang::FloatingLiteral>(expr) ||
         llvm::isa<clang::StringLiteral>(expr) ||
+        llvm::isa<clang::CXXBoolLiteralExpr>(expr) ||
+        llvm::isa<clang::CXXNullPtrLiteralExpr>(expr) ||
         llvm::isa<clang::CharacterLiteral>(expr))
     {
         return buildLiteral(expr);
@@ -107,6 +121,10 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     else if (auto *binary = llvm::dyn_cast<const clang::BinaryOperator>(&expr))
     {
         return buildBinaryExpression(*binary);
+    }
+    else if (auto *unary = llvm::dyn_cast<const clang::UnaryOperator>(&expr))
+    {
+        return buildUnaryExpression(*unary);
     }
     // Reference to variable, function, enum, etc.
     else if (auto *ref = llvm::dyn_cast<const clang::DeclRefExpr>(&expr))
@@ -199,7 +217,7 @@ Parameter ASTBuilder::buildParameter(const clang::ParmVarDecl &param)
 }
 
 // Build a function declaration
-FunctionDeclaration ASTBuilder::buildFunctionDecl(const clang::FunctionDecl &fn)
+FunctionDeclaration ASTBuilder::buildFunctionDecl(const clang::FunctionDecl &fn, bool isGlobal)
 {
     FunctionDeclaration result;
 
@@ -209,6 +227,7 @@ FunctionDeclaration ASTBuilder::buildFunctionDecl(const clang::FunctionDecl &fn)
     // result.line = getLineNumber(fn);
     // result.location = getLocationKey(fn->getLocation());
     result.returnType = fn.getReturnType().getAsString();
+    result.isGlobal = isGlobal;
 
     // Get params
     for (auto *param : fn.parameters())
@@ -378,10 +397,11 @@ std::unique_ptr<Statement> ASTBuilder::buildMacro(
     }
 }
 
-VariableDeclarationStatement ASTBuilder::buildVariableDeclStmt(const clang::VarDecl &var)
+VariableDeclarationStatement ASTBuilder::buildVariableDeclStmt(const clang::VarDecl &var, bool isGlobal)
 {
     VariableDeclarationStatement result;
     result.variable = buildVariableDecl(var);
+    result.isGlobal = isGlobal;
     return result;
 }
 
@@ -412,12 +432,17 @@ std::unique_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
             }
         }
     }
-
-    // if (auto *call = llvm::dyn_cast<clang::CallExpr>(stmt))
+    else if (auto *expr = llvm::dyn_cast<clang::Expr>(&stmt))
+    {
+        auto result = std::make_unique<ExpressionStatement>();
+        result->expression = buildExpression(*expr);
+        return result;
+    }
+    
+    // else if (auto *call = llvm::dyn_cast<clang::CallExpr>(&stmt))
     // {
-    //     return buildFunctionCall(call);
+    //     return buildExpressionStatement(call);
     // }
-
     // if (auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt))
     // {
     //     return buildIfStatement(ifStmt);
@@ -478,7 +503,7 @@ void ASTBuilder::buildAST(CustomAST &AST)
         // Variables
         if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
         {
-            AST.globals.push_back(buildVariableDeclStmt(*var));
+            AST.globals.push_back(buildVariableDeclStmt(*var, true));
         }
         else if (auto *func = llvm::dyn_cast<clang::FunctionDecl>(decl))
         {
@@ -499,7 +524,7 @@ void ASTBuilder::buildAST(CustomAST &AST)
             // Otherwise it's a top-level function
             else
             {
-                AST.functions.push_back(buildFunctionDecl(*func));
+                AST.functions.push_back(buildFunctionDecl(*func, true));
             }
         }
     }

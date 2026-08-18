@@ -3,6 +3,7 @@
 #include <clang/Frontend/FrontendActions.h>
 #include <string>
 #include "ast.h"
+#include "macro.h"
 
 namespace fs = std::filesystem;
 
@@ -22,11 +23,12 @@ private:
     CustomAST &AST;
     clang::SourceManager &sourceManager;
     clang::Preprocessor &pp;
+    std::unordered_map<unsigned, MacroInfo> &macros;
     unsigned currentTestKey = 0;
 
 public:
-    TestFinder(CustomAST &AST, clang::SourceManager &sm, clang::Preprocessor &pp)
-        : AST(AST), sourceManager(sm), pp(pp)
+    TestFinder(CustomAST &AST, clang::SourceManager &sm, clang::Preprocessor &pp, std::unordered_map<unsigned, MacroInfo> &macros)
+        : AST(AST), sourceManager(sm), pp(pp), macros(macros)
     {
     }
 
@@ -43,9 +45,10 @@ class TopLevelConsumer : public clang::ASTConsumer
 {
 private:
     CustomAST &AST;
+    std::unordered_map<unsigned, MacroInfo> &macros;
 
 public:
-    TopLevelConsumer(CustomAST &AST) : AST(AST) { }
+    TopLevelConsumer(CustomAST &AST, std::unordered_map<unsigned, MacroInfo> &macros) : AST(AST), macros(macros) { }
 
     void HandleTranslationUnit(clang::ASTContext &context) override;
 };
@@ -56,6 +59,7 @@ class TopLevelAction : public clang::ASTFrontendAction
 {
 private:
     CustomAST AST;
+    std::unordered_map<unsigned, MacroInfo> macros;
 
 public:
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(
@@ -66,4 +70,4 @@ public:
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-std::vector<CustomAST>* parseTestFiles(const std::vector<std::string>& filepaths);
+std::vector<CustomAST>* parseTestFiles(const std::vector<std::string>& filepaths, const fs::path &debugOutputDir);

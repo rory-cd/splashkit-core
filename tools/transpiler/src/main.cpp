@@ -33,7 +33,9 @@ int main(int argc, char** argv) {
         {
             std::string stem = entry.path().stem().string();                       // Filename without extension
             if (stem == "unit_test_main" || stem == "logging_handling") continue;  // Skip "main" file
-            if (stem != "unit_test_color" && stem != "unit_test_test") continue;
+            if (stem != "unit_test_color"
+                && stem != "unit_test_test"
+                && stem != "unit_test_music") continue;
 
             cppFiles.push_back(entry.path());                          // Add file to list
         }
@@ -49,8 +51,9 @@ int main(int argc, char** argv) {
     std::cout << "Found " << cppFiles.size() << " .cpp files\n\n";
 
     // Parse files
-    std::vector<CustomAST> *allASTs = parseTestFiles(cppFiles);
-
+    fs::path debugOutputDir = fs::path(SPLASHKIT_TESTS) / "unit_tests" / "generated" / "json";
+    std::vector<CustomAST> *allASTs = parseTestFiles(cppFiles, debugOutputDir);
+    
     // Translate the files to C#
     CSharpTranslator translator;
     fs::path outputDir = fs::path(SPLASHKIT_TESTS) / "unit_tests" / "generated" / "csharp";

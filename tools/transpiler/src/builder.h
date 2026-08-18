@@ -35,6 +35,9 @@ public:
     // Build a binary expression
     std::unique_ptr<Expression> buildBinaryExpression(const clang::BinaryOperator &binary);
 
+    // Build a unary expression
+    std::unique_ptr<Expression> buildUnaryExpression(const clang::UnaryOperator &unary);
+
     // Build a function call 
     std::unique_ptr<Expression> buildFunctionCall(const clang::CallExpr &call, std::string name);
 
@@ -47,13 +50,13 @@ public:
     // Build a variable declaration
     VariableDeclaration buildVariableDecl(const clang::VarDecl &var);
 
-    VariableDeclarationStatement buildVariableDeclStmt(const clang::VarDecl &var);
+    VariableDeclarationStatement buildVariableDeclStmt(const clang::VarDecl &var, bool isGlobal = false);
 
     // Build a parameter
     Parameter buildParameter(const clang::ParmVarDecl &param);
 
     // Build a function declaration
-    FunctionDeclaration buildFunctionDecl(const clang::FunctionDecl &fn);
+    FunctionDeclaration buildFunctionDecl(const clang::FunctionDecl &fn, bool isGlobal = false);
 
     void checkMinAndMax(clang::SourceLocation loc, clang::SourceLocation &min, clang::SourceLocation &max);
 

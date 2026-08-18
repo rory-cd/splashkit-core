@@ -56,6 +56,14 @@ struct BinaryExpression : Expression
     void serialise(json &j) const override { j = *this; j["kind"] = "BinaryExpression"; }
 };
 
+struct UnaryExpression : Expression
+{
+    std::string op;
+    std::unique_ptr<Expression> operand;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(UnaryExpression, op, operand)
+    void serialise(json &j) const override { j = *this; j["kind"] = "UnaryExpression"; }
+};
+
 struct VariableDeclaration
 {
     std::string name;
@@ -99,7 +107,8 @@ struct FunctionDeclaration
     std::vector<Parameter> parameters;
     std::vector<std::unique_ptr<Statement>> body;
     std::string returnType;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType)
+    bool isGlobal;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType, isGlobal)
 };
 
 struct ExpressionStatement : Statement
@@ -112,7 +121,8 @@ struct ExpressionStatement : Statement
 struct VariableDeclarationStatement : Statement
 {
     VariableDeclaration variable;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclarationStatement, variable)
+    bool isGlobal;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclarationStatement, variable, isGlobal)
     void serialise(json &j) const override { j = *this; j["kind"] = "VariableDeclarationStatement"; }
 };
 

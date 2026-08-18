@@ -16,8 +16,6 @@
 
 namespace fs = std::filesystem;
 
-std::unordered_map<unsigned, MacroInfo> macros;
-
 // Full set of ASTs generated
 std::vector<CustomAST> allASTs;
 
@@ -142,7 +140,7 @@ void TopLevelConsumer::HandleTranslationUnit(clang::ASTContext &context)
 // FrontEndAction is something you want Clang to do after it creates the AST after processing a source file
 // It has default ones, this is a custom one
 std::unique_ptr<clang::ASTConsumer> TopLevelAction::CreateASTConsumer(
-    clang::CompilerInstance &compiler,                  // Reference to Clang's internal compiler state
+    clang::CompilerInstance &compiler,                   // Reference to Clang's internal compiler state
     llvm::StringRef filename)                            // Filename (full path) being processed
 {
     // Set filename
@@ -154,18 +152,19 @@ std::unique_ptr<clang::ASTConsumer> TopLevelAction::CreateASTConsumer(
         std::make_unique<TestFinder>(
             AST,
             compiler.getSourceManager(),
-            compiler.getPreprocessor()
+            compiler.getPreprocessor(),
+            macros
         )
     );
 
     // Create a new consumer to send the AST to, and return a unique pointer to it
     // This consumer will build out the representation of the test file, and add it to the global list
-    return std::make_unique<TopLevelConsumer>(AST);
+    return std::make_unique<TopLevelConsumer>(AST, macros);
 }
 
 // Parses all files with the ClangTool
 // Gives clang the compilation instructions, files, and action it needs to build the AST
-std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths)
+std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths, const fs::path &debugOutputDir)
 {
     // Use these arguments when compiling ("Fixed" because it doesn't change per file)
     clang::tooling::FixedCompilationDatabase compilations(
@@ -184,19 +183,18 @@ std::vector<CustomAST>* parseTestFiles(const std::vector<std::string> &filepaths
     tool.run(clang::tooling::newFrontendActionFactory<TopLevelAction>().get());
 
     // Ensure output directory exists
-    fs::path outputDir = fs::current_path() / "generated" / "json";
-    fs::create_directories(outputDir);
+    fs::create_directories(debugOutputDir);
 
     //Convert and save as JSON
     for (const auto &test : allASTs)
     {
         json j = test;
-        fs::path outputFile = outputDir / (test.filename + ".json");    // Set path
+        fs::path outputFile = debugOutputDir / (test.filename + ".json");    // Set path
         std::ofstream file(outputFile);
         file << j.dump(4);
     }
 
-    std::cout << "\nSaved " << filepaths.size() << " tests to " << outputDir << "\n";
+    std::cout << "\nSaved " << filepaths.size() << " tests to " << debugOutputDir << "\n";
 
     return &allASTs;
 }
