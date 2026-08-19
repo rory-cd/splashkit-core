@@ -40,12 +40,12 @@ private:
     void writeAST(const CustomAST &AST, const std::string &projectName, const fs::path &outputFilepath);
     void writeGlobals(const CustomAST &AST, std::ofstream &file);
     void writeTestCase(const TestCase &testCase, std::ofstream &file, std::string category);
-    void writeSection(const Section &section, std::ofstream &file, std::vector<Statement*> &setup);
+    void writeSection(const Section &section, std::ofstream &file);
     void writeAssertion(const AssertionStatement &assertion, std::ofstream &file);
     void writeStatement(const Statement &statement, std::ofstream &file);
     void writeReturnStmt(const ReturnStatement &returnStmt, std::ofstream &file);
     void writeVarDeclStmt(const VariableDeclarationStatement &varDeclStmt, std::ofstream &file);
-    void writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file, const std::vector<Statement*> &setup);
+    void writeBody(const std::vector<std::shared_ptr<Statement>> &body, std::ofstream &file);
     void writeExprStmt(const ExpressionStatement &exprStmt, std::ofstream &file);
     void writeFunctionDecl(const FunctionDeclaration &funcDecl, std::ofstream &file);
 

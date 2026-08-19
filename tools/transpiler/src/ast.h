@@ -94,8 +94,8 @@ inline void to_json(json &j, const Statement &e)
     e.serialise(j);
 }
 
-// Defines how nlohmann/json converts this type (Unique pointer to Statement) to json
-inline void to_json(json &j, const std::unique_ptr<Statement> &e)
+// Defines how nlohmann/json converts this type (Shared pointer to Statement) to json
+inline void to_json(json &j, const std::shared_ptr<Statement> &e)
 {
     if (e) e->serialise(j);
     else   j = nullptr;         // This converts to "null" with nlohmann/json
@@ -105,7 +105,7 @@ struct FunctionDeclaration
 {
     std::string name;
     std::vector<Parameter> parameters;
-    std::vector<std::unique_ptr<Statement>> body;
+    std::vector<std::shared_ptr<Statement>> body;
     std::string returnType;
     bool isGlobal;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType, isGlobal)
@@ -133,14 +133,6 @@ struct ReturnStatement : Statement
     void serialise(json &j) const override { j = *this; j["kind"] = "ReturnStatement"; }
 };
 
-struct Section : Statement
-{
-    std::string name;
-    std::vector<std::unique_ptr<Statement>> body;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Section, name, body)
-    void serialise(json &j) const override { j = *this; j["kind"] = "Section"; }
-};
-
 enum class AssertionType
 {
     Require,
@@ -157,12 +149,19 @@ struct AssertionStatement : Statement
     void serialise(json &j) const override { j = *this; j["kind"] = "AssertionStatement"; }
 };
 
+struct Section
+{
+    std::string name;
+    std::vector<std::shared_ptr<Statement>> body;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Section, name, body)
+};
+
 struct TestCase
 {
     std::string name;
     std::vector<std::string> tags;
-    std::vector<std::unique_ptr<Statement>> body;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, body)
+    std::vector<Section> sections;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(TestCase, name, tags, sections)
 };
 
 struct CustomAST

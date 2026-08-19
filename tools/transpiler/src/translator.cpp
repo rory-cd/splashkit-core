@@ -130,53 +130,22 @@ void CSharpTranslator::writeTestCase(
     increaseIndent();
 
     // Body
-    writeBody(testCase.body, file, {});
+    for (auto &section : testCase.sections)
+    {
+        writeSection(section, file);
+    }
 
     // CLOSE TEST
     decreaseIndent();
     file << indt() << "}\n\n";
 }
 
-void CSharpTranslator::writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file, const std::vector<Statement*> &setup)
+void CSharpTranslator::writeBody(const std::vector<std::shared_ptr<Statement>> &body, std::ofstream &file)
 {
-    // Collect statements between sections
-    std::vector<Statement*> setupChildren = setup;
-
-    // Loop through and check for upcoming sections
-    bool sectionFound = false;
-    for (const auto &statement : body)
-    {
-        if (auto *section = dynamic_cast<Section*>(statement.get()))
-        {
-            sectionFound = true;
-            break;
-        }
-    }
-
-    // Setup statements
-    if (!sectionFound)
-    {
-        for (auto statement : setup)
-        {
-            writeStatement(*statement, file);
-        }
-    }
-
     // Body
     for (const auto &statement : body)
     {
-        // If it's a section, write it with the statements so far
-        if (auto *section = dynamic_cast<Section*>(statement.get()))
-        {
-            writeSection(*section, file, setupChildren);
-        }
-        else
-        {
-            // Sections upcoming - move statement to it
-            if (sectionFound) setupChildren.push_back(statement.get());
-            // No more sections - just write the statement
-            else writeStatement(*statement, file);
-        }
+        writeStatement(*statement, file);
     }
 }
 
@@ -196,7 +165,7 @@ void CSharpTranslator::writeStatement(const Statement &statement, std::ofstream 
     }
 }
 
-void CSharpTranslator::writeSection(const Section &section, std::ofstream &file, std::vector<Statement*> &setup)
+void CSharpTranslator::writeSection(const Section &section, std::ofstream &file)
 {
     // Set display name
     file << indt() << "[Fact(DisplayName = \"" + section.name + "\")]\n";
@@ -207,7 +176,7 @@ void CSharpTranslator::writeSection(const Section &section, std::ofstream &file,
     // Section body
     increaseIndent();
 
-    writeBody(section.body, file, setup);
+    writeBody(section.body, file);
 
     // End section
     decreaseIndent();

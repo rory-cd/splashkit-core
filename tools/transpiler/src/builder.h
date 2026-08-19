@@ -3,6 +3,7 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include "ast.h"
 #include "macro.h"
+#include "clang/AST/Stmt.h"
 
 // Builds a data structure for a custom AST
 class ASTBuilder
@@ -64,9 +65,11 @@ public:
     const clang::Expr* findExpressionInRange(const clang::Stmt *stmt, const clang::SourceRange targetRange, clang::SourceLocation &min, clang::SourceLocation &max);
 
     // Dispatcher for building macros
-    std::unique_ptr<Statement> buildMacro(const clang::Stmt &stmt, const MacroInfo &macroInfo);
+    std::shared_ptr<Statement> buildMacro(const clang::Stmt &stmt, const MacroInfo &macroInfo);
 
-    std::unique_ptr<Statement> buildStatement(const clang::Stmt &stmt);
+    std::shared_ptr<Statement> buildStatement(const clang::Stmt &stmt);
+
+    std::vector<Section> buildSections(std::vector<std::shared_ptr<Statement>> cumulativeStatements, const clang::CompoundStmt &srcStatements, std::string sectionName);
 
     // Build a test case
     TestCase buildTestCase(const clang::FunctionDecl &func, const MacroInfo &macroInfo);

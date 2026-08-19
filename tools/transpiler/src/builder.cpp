@@ -2,6 +2,8 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 
 #include <iostream>
+#include <memory>
+#include <vector>
 
 #include "builder.h"
 #include "ast.h"
@@ -338,7 +340,7 @@ const clang::Expr* ASTBuilder::findExpressionInRange(
 }
 
 // Dispatcher for building macros
-std::unique_ptr<Statement> ASTBuilder::buildMacro(
+std::shared_ptr<Statement> ASTBuilder::buildMacro(
     const clang::Stmt &stmt,
     const MacroInfo &macroInfo)
 {
@@ -350,39 +352,10 @@ std::unique_ptr<Statement> ASTBuilder::buildMacro(
 
     switch (macroInfo.kind)
     {
-        case MacroKind::Section:
-        {
-            std::cout << "Section macro: " << macroInfo.name << std::endl;
-            auto result = std::make_unique<Section>();
-            result->name = macroInfo.name;
-
-            // The SECTION macro becomes an if statement during compilation
-            auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(&stmt);
-
-            if (!ifStmt)
-                return result;
-
-            // The block of the if statement becomes the "body" of the section
-            auto *compound =
-                llvm::dyn_cast<clang::CompoundStmt>(ifStmt->getThen());
-
-            if (!compound)
-                return result;
-
-            // Add each statement to the section body
-            for (clang::Stmt *child : compound->body())
-            {
-                auto statement = buildStatement(*child);
-                if (statement) result->body.push_back(std::move(statement));
-            }
-
-            return result;
-        }
-            
         case MacroKind::Require:
         {
             std::cout << "Require macro: " << macroInfo.name << std::endl;
-            auto result = std::make_unique<AssertionStatement>();
+            auto result = std::make_shared<AssertionStatement>();
             result->type = AssertionType::Require;
 
             clang::SourceLocation min;
@@ -406,7 +379,7 @@ std::unique_ptr<Statement> ASTBuilder::buildMacro(
 
         default:
         std::cout << "Macro: " << "DUNNO" << std::endl;
-            auto result = std::make_unique<AssertionStatement>();
+            auto result = std::make_shared<AssertionStatement>();
             return result;
     }
 }
@@ -419,7 +392,7 @@ VariableDeclarationStatement ASTBuilder::buildVariableDeclStmt(const clang::VarD
     return result;
 }
 
-std::unique_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
+std::shared_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
 {
     // Start by checking for macros
     // Get the key for this location
@@ -442,27 +415,89 @@ std::unique_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
             // Variable declaration
             if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
             {
-                return std::make_unique<VariableDeclarationStatement>(buildVariableDeclStmt(*var));
+                return std::make_shared<VariableDeclarationStatement>(buildVariableDeclStmt(*var));
             }
         }
     }
     else if (auto *expr = llvm::dyn_cast<clang::Expr>(&stmt))
     {
-        auto result = std::make_unique<ExpressionStatement>();
+        auto result = std::make_shared<ExpressionStatement>();
         result->expression = buildExpression(*expr);
         return result;
     }
-    
-    // else if (auto *call = llvm::dyn_cast<clang::CallExpr>(&stmt))
-    // {
-    //     return buildExpressionStatement(call);
-    // }
-    // if (auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt))
-    // {
-    //     return buildIfStatement(ifStmt);
-    // }
 
     return nullptr;
+}
+
+std::vector<Section> ASTBuilder::buildSections(
+    std::vector<std::shared_ptr<Statement>> cumulativeStatements,
+    const clang::CompoundStmt &srcStatements,
+    std::string sectionName)
+{
+    std::vector<Section> foundSections;
+
+    // For every statement
+    for (clang::Stmt *stmt : srcStatements.body())
+    {
+        // Get the key for this location
+        unsigned key = getLocationKey(stmt->getBeginLoc());
+
+        // Check for any macros at this location
+        auto it = macros.find(key);
+
+        // Section found
+        if (it != macros.end() && it->second.kind == MacroKind::Section)
+        {
+            MacroInfo macroInfo = it->second;
+            std::cout << "Section macro: " << macroInfo.name << std::endl;
+
+            // The SECTION macro becomes an if statement during compilation
+            auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt);
+
+            if (!ifStmt) break;
+
+            // The block of the if statement becomes the "body" of the section
+            auto *compound =
+                llvm::dyn_cast<clang::CompoundStmt>(ifStmt->getThen());
+
+            if (!compound) break;
+
+            // Explore section body
+            std::vector<Section> subsections = buildSections(cumulativeStatements, *compound, macroInfo.name);
+            // Add any subsections to the running list
+            foundSections.insert(foundSections.end(), subsections.begin(), subsections.end());
+        }
+        // Not a section - build statement
+        else
+        {
+            // Build statement
+            auto statement = buildStatement(*stmt);
+            
+            if (statement)
+            {
+                // Add the new statement to the end of all the sections found at this level
+                for (auto &section : foundSections)
+                {
+                    section.body.push_back(statement);
+                }
+
+                cumulativeStatements.push_back(statement);
+            }
+        }
+    }
+
+    if (foundSections.empty() && !cumulativeStatements.empty())
+    {
+        // No sections found at this level (leaf node)
+        // Create the new section
+        Section newSection;
+        newSection.name = sectionName;
+        // Add all the setup statements so far
+        newSection.body.insert(newSection.body.end(), cumulativeStatements.begin(), cumulativeStatements.end());
+        foundSections.push_back(newSection);
+    }
+
+    return foundSections;
 }
 
 // Build a test case
@@ -478,18 +513,11 @@ TestCase ASTBuilder::buildTestCase(
     // testCase.location = getLocationKey(macroInfo.location);
     result.tags = macroInfo.tags;
 
-    // Build body
+    // Build sections
     clang::Stmt *body = func.getBody();
     auto *compound = llvm::dyn_cast<clang::CompoundStmt>(body);
     if (!compound) return result;
-
-    // For every statement
-    for (clang::Stmt *stmt : compound->body())
-    {
-        // Build it, then add it to the test case body
-        std::unique_ptr<Statement> childStmt = buildStatement(*stmt);
-        result.body.push_back(std::move(childStmt));
-    }
+    result.sections = buildSections({}, *compound, "");
 
     return result;
 }
