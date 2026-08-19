@@ -25,11 +25,11 @@ void CSharpTranslator::translateASTSet(
     {
         std::string filename = AST.filename + ".cs";
         fs::path outputFilepath = outputDir / filename;
-        translateAST(AST, projectName, outputFilepath);
+        writeAST(AST, projectName, outputFilepath);
     }
 }
 
-void CSharpTranslator::translateAST(
+void CSharpTranslator::writeAST(
     const CustomAST &AST,
     const std::string &projectName,
     const fs::path &outputFilepath)
@@ -50,11 +50,12 @@ void CSharpTranslator::translateAST(
     file << "namespace " + projectName + ";\n\n";
 
     // Declare  class
-    file << "\npublic class UnitTest" + category + "\n{\n";
+    file << "public class UnitTest" + category + "\n{\n";
     increaseIndent();
 
     // Globals
-    writeGlobals(AST, file);
+    if (!AST.globals.empty() && !AST.functions.empty())
+        writeGlobals(AST, file);
 
     for (auto &test : AST.tests)
     {
@@ -129,29 +130,59 @@ void CSharpTranslator::writeTestCase(
     increaseIndent();
 
     // Body
-    writeBody(testCase.body, file);
+    writeBody(testCase.body, file, {});
 
     // CLOSE TEST
     decreaseIndent();
     file << indt() << "}\n\n";
 }
 
-void CSharpTranslator::writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file)
+void CSharpTranslator::writeBody(const std::vector<std::unique_ptr<Statement>> &body, std::ofstream &file, const std::vector<Statement*> &setup)
 {
+    // Collect statements between sections
+    std::vector<Statement*> setupChildren = setup;
+
+    // Loop through and check for upcoming sections
+    bool sectionFound = false;
+    for (const auto &statement : body)
+    {
+        if (auto *section = dynamic_cast<Section*>(statement.get()))
+        {
+            sectionFound = true;
+            break;
+        }
+    }
+
+    // Setup statements
+    if (!sectionFound)
+    {
+        for (auto statement : setup)
+        {
+            writeStatement(*statement, file);
+        }
+    }
+
     // Body
     for (const auto &statement : body)
     {
-        writeStatement(*statement, file);
+        // If it's a section, write it with the statements so far
+        if (auto *section = dynamic_cast<Section*>(statement.get()))
+        {
+            writeSection(*section, file, setupChildren);
+        }
+        else
+        {
+            // Sections upcoming - move statement to it
+            if (sectionFound) setupChildren.push_back(statement.get());
+            // No more sections - just write the statement
+            else writeStatement(*statement, file);
+        }
     }
 }
 
 void CSharpTranslator::writeStatement(const Statement &statement, std::ofstream &file)
 {
-    if (auto *section = dynamic_cast<const Section*>(&statement))
-    {
-        writeSection(*section, file);
-    }
-    else if (auto *assertion = dynamic_cast<const AssertionStatement*>(&statement))
+    if (auto *assertion = dynamic_cast<const AssertionStatement*>(&statement))
     {
         writeAssertion(*assertion, file);
     }
@@ -165,7 +196,7 @@ void CSharpTranslator::writeStatement(const Statement &statement, std::ofstream 
     }
 }
 
-void CSharpTranslator::writeSection(const Section &section, std::ofstream &file)
+void CSharpTranslator::writeSection(const Section &section, std::ofstream &file, std::vector<Statement*> &setup)
 {
     // Set display name
     file << indt() << "[Fact(DisplayName = \"" + section.name + "\")]\n";
@@ -176,7 +207,7 @@ void CSharpTranslator::writeSection(const Section &section, std::ofstream &file)
     // Section body
     increaseIndent();
 
-    writeBody(section.body, file);
+    writeBody(section.body, file, setup);
 
     // End section
     decreaseIndent();
@@ -194,7 +225,6 @@ void CSharpTranslator::writeAssertion(const AssertionStatement &assertion, std::
             // Binary expression
             if (bin->op == "==")
             {
-                std::string assertionType = "Equal";
                 std::string left;
                 std::string right;
 
@@ -211,7 +241,25 @@ void CSharpTranslator::writeAssertion(const AssertionStatement &assertion, std::
                     right = translateExpression(*(bin->right));
                 }
 
-                file << indt() << "Assert." << assertionType << "(" << left << ", " << right << ");\n";
+                // Select correct assertion type based on expression
+                std::string assertion;
+
+                if (left == "null")
+                {
+                    assertion = "Null(" + right + ")";
+                }
+                else if (left == "true")
+                {
+                    assertion = "True(" + right + ")";
+                }
+                else if (left == "false")
+                {
+                    assertion = "False(" + right + ")";
+                }
+                else
+                    assertion = "Equal(" + left + ", " + right + ")";
+
+                file << indt() << "Assert." << assertion + ";\n";
             }
         }
     }
@@ -240,8 +288,8 @@ void CSharpTranslator::writeExprStmt(const ExpressionStatement &exprStmt, std::o
     std::string expr = translateExpression(*exprStmt.expression);
 
     // If it's a call to the logger, skip it
-    if (expr.find("enable_logging") != std::string::npos ||
-        expr.find("disable_logging") != std::string::npos)
+    if (expr.find("EnableLogging") != std::string::npos ||
+        expr.find("DisableLogging") != std::string::npos)
         return;
 
     file << indt() << expr + ";\n";

@@ -7,7 +7,9 @@
 #include "ast.h"
 #include "macro.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/Stmt.h"
+#include "clang/Basic/OperatorKinds.h"
 
 // Gets the line number of a declaration from the source file
 // int ASTBuilder::getLineNumber(const clang::Decl *decl)
@@ -130,6 +132,18 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     else if (auto *ref = llvm::dyn_cast<const clang::DeclRefExpr>(&expr))
     {
         return buildReference(*ref);
+    }
+    // Overloaded operators (e.g. someString == "testString") - store as binary expression
+    else if (auto *opCall = llvm::dyn_cast<const clang::CXXOperatorCallExpr>(&expr))
+    {
+        // Create a binary expression node and assign the correct operator
+        auto binary = std::make_unique<BinaryExpression>();
+
+        binary->op = clang::getOperatorSpelling(opCall->getOperator());
+        binary->left = buildExpression(*opCall->getArg(0));
+        binary->right = buildExpression(*opCall->getArg(1));
+
+        return binary;
     }
     // Calls
     else if (auto *call = llvm::dyn_cast<const clang::CallExpr>(&expr))
