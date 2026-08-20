@@ -32,10 +32,18 @@ struct LiteralExpression : Expression
     void serialise(json &j) const override { j = *this; j["kind"] = "LiteralExpression"; }
 };
 
+enum class ReferenceKind
+{
+    Variable,
+    EnumConstant
+};
+
 struct ReferenceExpression : Expression
 {
     std::string name;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ReferenceExpression, name)
+    ReferenceKind refKind;
+    std::string parentType;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ReferenceExpression, name, refKind, parentType)
     void serialise(json &j) const override { j = *this; j["kind"] = "ReferenceExpression"; }
 };
 

@@ -67,7 +67,7 @@ public:
     // Dispatcher for building macros
     std::shared_ptr<Statement> buildMacro(const clang::Stmt &stmt, const MacroInfo &macroInfo);
 
-    std::shared_ptr<Statement> buildStatement(const clang::Stmt &stmt);
+    std::vector<std::shared_ptr<Statement>> buildStatements(const clang::Stmt &stmt);
 
     std::vector<Section> buildSections(std::vector<std::shared_ptr<Statement>> cumulativeStatements, const clang::CompoundStmt &srcStatements, std::string sectionName);
 

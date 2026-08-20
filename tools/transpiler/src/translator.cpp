@@ -230,6 +230,44 @@ void CSharpTranslator::writeAssertion(const AssertionStatement &assertion, std::
 
                 file << indt() << "Assert." << assertion + ";\n";
             }
+            else if (bin->op == "!=")
+            {
+                std::string left;
+                std::string right;
+
+                // If there's a literal or unary on the right, swap places
+                if (dynamic_cast<const LiteralExpression*>((bin->right).get()) ||
+                    dynamic_cast<const UnaryExpression*>((bin->right).get()))
+                {
+                    right = translateExpression(*(bin->left));
+                    left = translateExpression(*(bin->right));
+                }
+                else
+                {
+                    left = translateExpression(*(bin->left));
+                    right = translateExpression(*(bin->right));
+                }
+
+                // Select correct assertion type based on expression
+                std::string assertion;
+
+                if (left == "null")
+                {
+                    assertion = "NotNull(" + right + ")";
+                }
+                else if (left == "true")
+                {
+                    assertion = "False(" + right + ")";
+                }
+                else if (left == "false")
+                {
+                    assertion = "True(" + right + ")";
+                }
+                else
+                    assertion = "NotEqual(" + left + ", " + right + ")";
+
+                file << indt() << "Assert." << assertion + ";\n";
+            }
         }
     }
 }
@@ -316,9 +354,18 @@ std::string CSharpTranslator::translateRefExpr(const ReferenceExpression &expr)
     // Check if it's a global variable
     if (globals.find(expr.name) != globals.end())
     {
-        result += globalClassName + ".";
+        result += globalClassName + "." + toCamelCase(expr.name);
     }
-    result += toCamelCase(expr.name);
+    // Check if it's an enum
+    else if (expr.refKind == ReferenceKind::EnumConstant)
+    {
+        result += toPascalCase(expr.parentType) + ".";
+        result += toPascalCase(toLowerCase(expr.name));
+    }
+    else
+    {
+        result += toCamelCase(expr.name);
+    }
 
     return result;
 }
@@ -438,7 +485,19 @@ global using static SplashKitSDK.SplashKit;)";
     usingsFile.close();
 }
 
-std::string CSharpTranslator::toCamelCase(const std::string& name)
+std::string CSharpTranslator::toLowerCase(const std::string &name)
+{
+    std::string result;
+
+    for (const char &c : name)
+    {
+        result += std::tolower(c);
+    }
+
+    return result;
+}
+
+std::string CSharpTranslator::toCamelCase(const std::string &name)
 {
     // Convert to PascalCase
     std::string result = toPascalCase(name);
@@ -451,7 +510,7 @@ std::string CSharpTranslator::toCamelCase(const std::string& name)
     return result;
 }
 
-std::string CSharpTranslator::toPascalCase(const std::string& name)
+std::string CSharpTranslator::toPascalCase(const std::string &name)
 {
     // Special cases taken from SplashKit Translator: lib/core_ext/string.rb
     const std::unordered_map<std::string, std::string> specialCases = {
@@ -519,7 +578,8 @@ std::string CSharpTranslator::translateType(const std::string &cppType)
         {"byte", "byte"},
         {"unsigned char", "byte"},
         {"unsigned int", "uint"},
-        {"unsigned short", "ushort"}
+        {"unsigned short", "ushort"},
+        {"nullptr_t", "null"}
     };
 
     auto it = typeMap.find(cppType);

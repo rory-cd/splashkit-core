@@ -2,12 +2,14 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 
 #include <iostream>
+#include <llvm-18/llvm/Support/Casting.h>
 #include <memory>
 #include <vector>
 
 #include "builder.h"
 #include "ast.h"
 #include "macro.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Stmt.h"
@@ -102,6 +104,23 @@ std::unique_ptr<Expression> ASTBuilder::buildReference(const clang::DeclRefExpr 
 {
     auto result = std::make_unique<ReferenceExpression>();
     result->name = ref.getDecl()->getNameAsString();
+
+    // Check type
+    if (auto *eNumConstant = llvm::dyn_cast<clang::EnumConstantDecl>(ref.getDecl()))
+    {
+        result->refKind = ReferenceKind::EnumConstant;
+
+        // Get enum type name
+        if (auto *enumDecl = llvm::dyn_cast<clang::EnumDecl>(eNumConstant->getDeclContext()))
+        {
+            result->parentType = enumDecl->getNameAsString();
+        }
+    }
+    else if (llvm::isa<clang::VarDecl>(ref.getDecl()))
+    {
+        result->refKind = ReferenceKind::Variable;
+    }
+
     return result;
 }
 
@@ -392,8 +411,9 @@ VariableDeclarationStatement ASTBuilder::buildVariableDeclStmt(const clang::VarD
     return result;
 }
 
-std::shared_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
+std::vector<std::shared_ptr<Statement>> ASTBuilder::buildStatements(const clang::Stmt &stmt)
 {
+    std::vector<std::shared_ptr<Statement>> result;
     // Start by checking for macros
     // Get the key for this location
     unsigned key = getLocationKey(stmt.getBeginLoc());
@@ -404,7 +424,8 @@ std::shared_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
     // If there is one, build it
     if (it != macros.end())
     {
-        return buildMacro(stmt, it->second);
+        auto macro = buildMacro(stmt, it->second);
+        result.push_back(macro);
     }
     // Declaration statement
     else if (auto *declStmt = llvm::dyn_cast<clang::DeclStmt>(&stmt))
@@ -415,22 +436,23 @@ std::shared_ptr<Statement> ASTBuilder::buildStatement(const clang::Stmt &stmt)
             // Variable declaration
             if (auto *var = llvm::dyn_cast<clang::VarDecl>(decl))
             {
-                return std::make_shared<VariableDeclarationStatement>(buildVariableDeclStmt(*var));
+                auto varDecl = std::make_shared<VariableDeclarationStatement>(buildVariableDeclStmt(*var));
+                result.push_back(varDecl);
             }
         }
     }
     else if (auto *expr = llvm::dyn_cast<clang::Expr>(&stmt))
     {
-        auto result = std::make_shared<ExpressionStatement>();
-        result->expression = buildExpression(*expr);
-        return result;
+        auto exprStmt = std::make_shared<ExpressionStatement>();
+        exprStmt->expression = buildExpression(*expr);
+        result.push_back(exprStmt);
     }
 
-    return nullptr;
+    return result;
 }
 
 std::vector<Section> ASTBuilder::buildSections(
-    std::vector<std::shared_ptr<Statement>> cumulativeStatements,
+    std::vector<std::shared_ptr<Statement>> runningStmts,
     const clang::CompoundStmt &srcStatements,
     std::string sectionName)
 {
@@ -463,37 +485,37 @@ std::vector<Section> ASTBuilder::buildSections(
             if (!compound) break;
 
             // Explore section body
-            std::vector<Section> subsections = buildSections(cumulativeStatements, *compound, macroInfo.name);
+            std::vector<Section> subsections = buildSections(runningStmts, *compound, macroInfo.name);
             // Add any subsections to the running list
             foundSections.insert(foundSections.end(), subsections.begin(), subsections.end());
         }
-        // Not a section - build statement
+        // Not a section - build statement(s)
         else
         {
-            // Build statement
-            auto statement = buildStatement(*stmt);
+            // Build statements
+            auto stmts = buildStatements(*stmt);
             
-            if (statement)
+            if (!stmts.empty())
             {
-                // Add the new statement to the end of all the sections found at this level
+                // Add the new statements to the end of all the sections found at this level
                 for (auto &section : foundSections)
                 {
-                    section.body.push_back(statement);
+                    section.body.insert(section.body.end(), stmts.begin(), stmts.end());
                 }
 
-                cumulativeStatements.push_back(statement);
+                runningStmts.insert(runningStmts.end(), stmts.begin(), stmts.end());
             }
         }
     }
 
-    if (foundSections.empty() && !cumulativeStatements.empty())
+    if (foundSections.empty() && !runningStmts.empty())
     {
         // No sections found at this level (leaf node)
         // Create the new section
         Section newSection;
         newSection.name = sectionName;
         // Add all the setup statements so far
-        newSection.body.insert(newSection.body.end(), cumulativeStatements.begin(), cumulativeStatements.end());
+        newSection.body.insert(newSection.body.end(), runningStmts.begin(), runningStmts.end());
         foundSections.push_back(newSection);
     }
 

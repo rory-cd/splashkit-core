@@ -60,6 +60,7 @@ private:
     std::string translateLiteralExpr(const LiteralExpression &expr);
     
     // String manipulation
+    std::string toLowerCase(const std::string &name);
     std::string toCamelCase(const std::string &name);
     std::string toPascalCase(const std::string &name);
     std::string translateType(const std::string &cppType);
