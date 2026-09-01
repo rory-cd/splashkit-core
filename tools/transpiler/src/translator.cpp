@@ -54,8 +54,10 @@ void CSharpTranslator::writeAST(
     increaseIndent();
 
     // Globals
-    if (!AST.globals.empty() && !AST.functions.empty())
+    if (!AST.globals.empty() || !AST.functions.empty())
+    {
         writeGlobals(AST, file);
+    }
 
     for (auto &test : AST.tests)
     {
@@ -329,6 +331,14 @@ std::string CSharpTranslator::translateExpression(const Expression &expr)
     {
         return translateCallExpr(*call);
     }
+    else if (auto *ctor = dynamic_cast<const ConstructorExpression*>(&expr))
+    {
+        return translateConstructorExpr(*ctor);
+    }
+    else if (auto *initList = dynamic_cast<const InitListExpression*>(&expr))
+    {
+        return translateInitListExpr(*initList);
+    }
 
     throw std::runtime_error("Unsupported Expression type in Translator: translateExpression()" + std::string(typeid(expr).name()));
 }
@@ -395,6 +405,46 @@ std::string CSharpTranslator::translateCallExpr(const CallExpression &expr)
     return result;
 }
 
+std::string CSharpTranslator::translateConstructorExpr(const ConstructorExpression &expr)
+{
+    std::string result = toPascalCase(expr.type) + "(";
+    int argCount = expr.arguments.size();
+
+    // Add arguments
+    for (int i = 0; i < argCount; ++i)
+    {
+        if (i > 0)
+            result += ", ";
+
+        result += translateExpression(*expr.arguments[i]);
+    }
+
+    result += ")";
+    return result;
+}
+
+std::string CSharpTranslator::translateInitListExpr(const InitListExpression &expr)
+{
+    std::string result;
+
+    if (expr.elementType == "string")
+    {
+        result += "{";
+        
+        // Add arguments
+        for (int i = 0; i < expr.elements.size(); ++i)
+        {
+            if (i > 0)
+                result += ", ";
+
+            result += translateExpression(*expr.elements[i]);
+        }
+    }
+
+    result += "}";
+    return result;
+}
+
 std::string CSharpTranslator::translateLiteralExpr(const LiteralExpression &expr)
 {
     std::string result = expr.value;
@@ -406,7 +456,7 @@ std::string CSharpTranslator::translateLiteralExpr(const LiteralExpression &expr
 void CSharpTranslator::writeFunctionDecl(const FunctionDeclaration &funcDecl, std::ofstream &file)
 {
     std::string declaration = funcDecl.isGlobal ? "public static " : ""; 
-    declaration += funcDecl.returnType + " " + toPascalCase(funcDecl.name);
+    declaration += translateType(funcDecl.returnType) + " " + toPascalCase(funcDecl.name);
 
     file << indt() << declaration << "(";
 
@@ -425,8 +475,9 @@ void CSharpTranslator::writeFunctionDecl(const FunctionDeclaration &funcDecl, st
     file << indt() << "{\n";
 
     increaseIndent();
-    file << indt();
-    file << "// Body goes here\n";
+
+    writeBody(funcDecl.body, file);
+
     decreaseIndent();
     file << indt() << "}\n\n";
 }
@@ -587,6 +638,8 @@ std::string CSharpTranslator::translateType(const std::string &cppType)
     // If it's a known type, convert it, otherwise convert to PascalCase
     if (it != typeMap.end())
         return it->second; 
+    else if (cppType == "void")
+        return cppType;
     else
         return toPascalCase(cppType);
 }

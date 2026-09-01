@@ -35,7 +35,9 @@ int main(int argc, char** argv) {
             if (stem == "unit_test_main" || stem == "logging_handling") continue;  // Skip "main" file
             if (stem != "unit_test_color"
                 && stem != "unit_test_test"
-                && stem != "unit_test_music") continue;
+                && stem != "unit_test_music"
+                // && stem != "unit_test_json"
+            ) continue;
 
             cppFiles.push_back(entry.path());                          // Add file to list
         }
@@ -58,6 +60,7 @@ int main(int argc, char** argv) {
     CSharpTranslator translator;
     fs::path outputDir = fs::path(SPLASHKIT_TESTS) / "unit_tests" / "generated" / "csharp";
     translator.translateASTSet(*allASTs, outputDir);
+    std::cout << "Translated " << cppFiles.size() << " C++ files to C#\n\n";
  
     return 0;
 }

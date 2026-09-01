@@ -81,6 +81,45 @@ std::unique_ptr<Expression> ASTBuilder::buildUnaryExpression(const clang::UnaryO
     return result;
 }
 
+// Build initialiser list expression
+std::unique_ptr<Expression> ASTBuilder::buildInitListExpression(const clang::InitListExpr &initList)
+{
+    auto result = std::make_unique<InitListExpression>();
+
+    if (initList.getNumInits() > 0)
+    {
+        result->elementType = initList.getInit(0)->IgnoreImplicit()->getType().getAsString();
+    }
+
+    for (unsigned i = 0; i < initList.getNumInits(); i++)
+    {
+        auto *element = initList.getInit(i);
+        auto expr = buildExpression(*element);
+        result->elements.push_back(std::move(expr));
+    }
+
+    return result;
+}
+
+// Build constructor expression
+std::unique_ptr<Expression> ASTBuilder::buildConstructorExpression(const clang::CXXConstructExpr &ctorExpr)
+{
+    auto result = std::make_unique<ConstructorExpression>();
+    result->type = ctorExpr.getType().getAsString();
+
+    for (unsigned i = 0; i < ctorExpr.getNumArgs(); i++)
+    {
+        auto *arg = ctorExpr.getArg(i);
+
+        if (llvm::isa<clang::CXXDefaultArgExpr>(arg)) continue;
+
+        auto expr = buildExpression(*arg);
+        result->arguments.push_back(std::move(expr));
+    }
+
+    return result;
+}
+
 // Build a function call 
 std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(const clang::CallExpr &call, std::string name)
 {
@@ -127,8 +166,9 @@ std::unique_ptr<Expression> ASTBuilder::buildReference(const clang::DeclRefExpr 
 // Expression dispatcher
 std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
 {
-    llvm::outs() << "\nClass: " << expr.getStmtClassName() << "\n";
-    llvm::outs() << "Type: " << expr.getType().getAsString() << "\n";
+    // cout
+    // llvm::outs() << "\nClass: " << expr.getStmtClassName() << "\n";
+    // llvm::outs() << "Type: " << expr.getType().getAsString() << "\n";
 
     // clang::Expr *cleanExpr = expr->IgnoreImplicit();
     // Literals
@@ -175,6 +215,16 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
             return buildFunctionCall(*call, funcDecl->getNameAsString());
         }
     }
+    // Initialiser list
+    else if (auto *initList = llvm::dyn_cast<const clang::InitListExpr>(&expr))
+    {
+        return buildInitListExpression(*initList);
+    }
+    // Initialiser list wrapper
+    else if (auto *initList = llvm::dyn_cast<const clang::CXXStdInitializerListExpr>(&expr))
+    {
+        return buildExpression(*initList->getSubExpr());
+    }
     // Implicit casts (unwrap them)
     else if (auto *cast = llvm::dyn_cast<const clang::ImplicitCastExpr>(&expr))
     {
@@ -185,10 +235,56 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     {
         return buildExpression(*cleanups->getSubExpr());
     }
-    // Constructor expressions (like C++ making a string() object for a string literal) - unwrap
+    // Constructor expressions (or wrappers like C++ making a string() object for a string literal)
     else if (auto *construct = llvm::dyn_cast<clang::CXXConstructExpr>(&expr))
     {
-        return buildExpression(*construct->getArg(0));
+        // Check the target type
+        std::string targetType = construct->getType().getUnqualifiedType().getAsString();
+
+        // If there's one argument and it's the same type as the target (e.g. color(someColor)), unwrap it
+        if (construct->getNumArgs() == 1)
+        {
+            auto *arg = construct->getArg(0);
+            std::string argType = arg->getType().getUnqualifiedType().getAsString();
+
+            if (targetType == argType)
+                return buildExpression(*arg);
+        }
+
+        // Constructor is a string - unwrap the literal
+        if (targetType == "string" && construct->getNumArgs() > 0)
+        {
+            // std::cout << "STRINGY\n";
+            return buildExpression(*construct->getArg(0));
+        }
+        // Constructor uses list initialisation
+        else if (construct->isListInitialization())
+        {
+            // std::cout << "INIT LIST CONSTRUCTION\n";
+
+            // auto *initList = llvm::dyn_cast<clang::InitListExpr>(construct);
+            // return buildInitListExpression(*initList);
+            // if (initList != nullptr) std::cout << "HOORAY!" << "\n";
+            return buildExpression(*construct->getArg(0));
+        }
+        else
+        {
+            // std::cout << "NORMAL CONSTRUCTION\n";
+            return buildConstructorExpression(*construct);
+        }
+        // ctorDecl->isDefaultConstructor();
+        // ctorDecl->isCopyConstructor();
+
+        // for (unsigned i = 0; i < construct->getNumArgs(); ++i)
+        // {
+        //     const clang::Expr *arg = construct->getArg(i);
+
+        //     std::cout << "CONSTRUCTOR ARG " << i << ": "
+        //             << arg->getStmtClassName() << '\n';
+        // }
+        
+        // Copy constructor
+        
     }
     // Another clang wrapper for memory management - unwrap
     else if (auto *bind = llvm::dyn_cast<clang::CXXBindTemporaryExpr>(&expr))
@@ -207,7 +303,6 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
 
     std::cout << "Unsupported expression found at line " << sourceManager.getSpellingLineNumber(expr.getExprLoc()) << std::endl;
     throw std::runtime_error("Unsupported expression");
-
 }
 
 // Build a variable declaration
@@ -271,8 +366,13 @@ FunctionDeclaration ASTBuilder::buildFunctionDecl(const clang::FunctionDecl &fn,
     }
 
     // Build the function body
-    // auto *body = llvm::cast<clang::CompoundStmt>(fn->getBody());
-    // result.body = buildBlock(body);
+    auto *body = llvm::cast<clang::CompoundStmt>(fn.getBody());
+    for (const auto *stmt : body->body())
+    {
+        auto statements = buildStatements(*stmt);
+
+        result.body.insert(result.body.end(), statements.begin(), statements.end());
+    }
 
     return result;
 }
@@ -332,11 +432,11 @@ const clang::Expr* ASTBuilder::findExpressionInRange(
         checkMinAndMax(expr->getBeginLoc(), min, max);
         checkMinAndMax(expr->getEndLoc(), min, max);
 
-        std::cout << expr->getStmtClassName() << ": "
-            << min.printToString(sourceManager)
-            << " -> "
-            << max.printToString(sourceManager)
-            << '\n';
+        // std::cout << expr->getStmtClassName() << ": "
+        //     << min.printToString(sourceManager)
+        //     << " -> "
+        //     << max.printToString(sourceManager)
+        //     << '\n';
 
         // Normalise target locations in the same way.
         clang::SourceLocation targetBegin =
@@ -347,9 +447,9 @@ const clang::Expr* ASTBuilder::findExpressionInRange(
 
         if (childMin.isValid() && childMax.isValid() && childMin == targetBegin && childMax == targetEnd)
         {
-            std::cout << "MATCH: "
-                    << stmt->getStmtClassName()
-                    << '\n';
+            // std::cout << "MATCH: "
+            //         << stmt->getStmtClassName()
+            //         << '\n';
 
             return expr;
         }
@@ -363,17 +463,17 @@ std::shared_ptr<Statement> ASTBuilder::buildMacro(
     const clang::Stmt &stmt,
     const MacroInfo &macroInfo)
 {
-    std::cout << "Macro: "
-        << macroInfo.name
-        << '\n';
+    // std::cout << "Macro: "
+    //     << macroInfo.name
+    //     << '\n';
 
-    stmt.dump();
+    // stmt.dump();
 
     switch (macroInfo.kind)
     {
         case MacroKind::Require:
         {
-            std::cout << "Require macro: " << macroInfo.name << std::endl;
+            // std::cout << "Require macro: " << macroInfo.name << std::endl;
             auto result = std::make_shared<AssertionStatement>();
             result->type = AssertionType::Require;
 
@@ -387,9 +487,9 @@ std::shared_ptr<Statement> ASTBuilder::buildMacro(
                 return result;
             }
 
-            std::cout << "Found argument: "
-                    << argument->getStmtClassName()
-                    << std::endl;
+            // std::cout << "Found argument: "
+            //         << argument->getStmtClassName()
+            //         << std::endl;
             
             result->expression = buildExpression(*argument);
 
@@ -397,7 +497,7 @@ std::shared_ptr<Statement> ASTBuilder::buildMacro(
         }
 
         default:
-        std::cout << "Macro: " << "DUNNO" << std::endl;
+        // std::cout << "Macro: " << "DUNNO" << std::endl;
             auto result = std::make_shared<AssertionStatement>();
             return result;
     }
@@ -441,6 +541,13 @@ std::vector<std::shared_ptr<Statement>> ASTBuilder::buildStatements(const clang:
             }
         }
     }
+    else if (auto *retrn = llvm::dyn_cast<clang::ReturnStmt>(&stmt))
+    {
+        auto returnStmt = std::make_shared<ReturnStatement>();
+        returnStmt->value = buildExpression(*retrn->getRetValue());
+        result.push_back(returnStmt);
+    }
+    // Expression statement
     else if (auto *expr = llvm::dyn_cast<clang::Expr>(&stmt))
     {
         auto exprStmt = std::make_shared<ExpressionStatement>();
@@ -471,7 +578,7 @@ std::vector<Section> ASTBuilder::buildSections(
         if (it != macros.end() && it->second.kind == MacroKind::Section)
         {
             MacroInfo macroInfo = it->second;
-            std::cout << "Section macro: " << macroInfo.name << std::endl;
+            // std::cout << "Section macro: " << macroInfo.name << std::endl;
 
             // The SECTION macro becomes an if statement during compilation
             auto *ifStmt = llvm::dyn_cast<clang::IfStmt>(stmt);

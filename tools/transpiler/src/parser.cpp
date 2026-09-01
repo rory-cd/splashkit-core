@@ -105,26 +105,26 @@ void TestFinder::MacroExpands(
 
         macro.argumentRange = clang::SourceRange(begin, end);
         macros[key] = macro;
-        std::cout << "Inserted require macro" << std::endl;
-        std::cout << "Require args between: " << macro.argumentRange.getBegin().getRawEncoding() << " and " << macro.argumentRange.getEnd().getRawEncoding() << std::endl;
+        // std::cout << "Inserted require macro" << std::endl;
+        // std::cout << "Require args between: " << macro.argumentRange.getBegin().getRawEncoding() << " and " << macro.argumentRange.getEnd().getRawEncoding() << std::endl;
     }
     else if (name == "REQUIRE_FALSE")
     {
         macro.kind = MacroKind::RequireFalse;
         macros[key] = macro;
-        std::cout << "- Require false found at " << macro.location.getRawEncoding() << std::endl;
+        // std::cout << "- Require false found at " << macro.location.getRawEncoding() << std::endl;
     }
     else if (name == "CHECK")
     {
         macro.kind = MacroKind::Check;
         macros[key] = macro;
-        std::cout << "- Check found at " << macro.location.getRawEncoding() << std::endl;
+        // std::cout << "- Check found at " << macro.location.getRawEncoding() << std::endl;
     }
     else if (name == "CHECK_FALSE")
     {
         macro.kind = MacroKind::CheckFalse;
         macros[key] = macro;
-        std::cout << "- Check false found at " << macro.location.getRawEncoding() << std::endl;
+        // std::cout << "- Check false found at " << macro.location.getRawEncoding() << std::endl;
     }
     // Track the current test case
     if (name == "TEST_CASE") currentTestKey = key;

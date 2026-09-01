@@ -47,6 +47,22 @@ struct ReferenceExpression : Expression
     void serialise(json &j) const override { j = *this; j["kind"] = "ReferenceExpression"; }
 };
 
+struct ConstructorExpression : Expression
+{
+    std::string type;
+    std::vector<std::unique_ptr<Expression>> arguments;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ConstructorExpression, type, arguments)
+    void serialise(json &j) const override { j = *this; j["kind"] = "ConstructorExpression"; }
+};
+
+struct InitListExpression : Expression
+{
+    std::string elementType;
+    std::vector<std::unique_ptr<Expression>> elements;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(InitListExpression, elements, elementType)
+    void serialise(json &j) const override { j = *this; j["kind"] = "InitListExpression"; }
+};
+
 struct CallExpression : Expression
 {
     std::string functionName;

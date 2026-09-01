@@ -39,6 +39,12 @@ public:
     // Build a unary expression
     std::unique_ptr<Expression> buildUnaryExpression(const clang::UnaryOperator &unary);
 
+    // Build an initialiser list expression
+    std::unique_ptr<Expression> buildInitListExpression(const clang::InitListExpr &initList);
+
+    // Build a constructor expression
+    std::unique_ptr<Expression> buildConstructorExpression(const clang::CXXConstructExpr &ctorExpr);
+
     // Build a function call 
     std::unique_ptr<Expression> buildFunctionCall(const clang::CallExpr &call, std::string name);
 

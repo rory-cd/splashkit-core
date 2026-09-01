@@ -58,6 +58,8 @@ private:
     std::string translateCallExpr(const CallExpression &expr);
     std::string translateRefExpr(const ReferenceExpression &expr);
     std::string translateLiteralExpr(const LiteralExpression &expr);
+    std::string translateConstructorExpr(const ConstructorExpression &expr);
+    std::string translateInitListExpr(const InitListExpression &expr);
     
     // String manipulation
     std::string toLowerCase(const std::string &name);
