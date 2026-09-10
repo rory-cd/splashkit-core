@@ -46,7 +46,7 @@ public:
     std::unique_ptr<Expression> buildConstructorExpression(const clang::CXXConstructExpr &ctorExpr);
 
     // Build a function call 
-    std::unique_ptr<Expression> buildFunctionCall(const clang::CallExpr &call, std::string name);
+    std::unique_ptr<Expression> buildFunctionCall(const clang::CallExpr &call, const clang::FunctionDecl &function);
 
     // Build a reference to something already declared
     std::unique_ptr<Expression> buildReference(const clang::DeclRefExpr &ref);
@@ -61,6 +61,9 @@ public:
 
     // Build a parameter
     Parameter buildParameter(const clang::ParmVarDecl &param);
+
+    // Build a type
+    Type buildType(const clang::QualType &qualType);
 
     // Build a function declaration
     FunctionDeclaration buildFunctionDecl(const clang::FunctionDecl &fn, bool isGlobal = false);

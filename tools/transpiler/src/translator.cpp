@@ -165,6 +165,10 @@ void CSharpTranslator::writeStatement(const Statement &statement, std::ofstream 
     {
         writeExprStmt(*exprStmt, file);
     }
+    else if (auto *returnStmt = dynamic_cast<const ReturnStatement*>(&statement))
+    {
+        writeReturnStmt(*returnStmt, file);
+    }
 }
 
 void CSharpTranslator::writeSection(const Section &section, std::ofstream &file)
@@ -215,7 +219,7 @@ void CSharpTranslator::writeAssertion(const AssertionStatement &assertion, std::
                 // Select correct assertion type based on expression
                 std::string assertion;
 
-                if (left == "null")
+                if (left == "null" || left == "nullptr")
                 {
                     assertion = "Null(" + right + ")";
                 }
@@ -253,7 +257,7 @@ void CSharpTranslator::writeAssertion(const AssertionStatement &assertion, std::
                 // Select correct assertion type based on expression
                 std::string assertion;
 
-                if (left == "null")
+                if (left == "null" || left == "nullptr")
                 {
                     assertion = "NotNull(" + right + ")";
                 }
@@ -398,7 +402,10 @@ std::string CSharpTranslator::translateCallExpr(const CallExpression &expr)
         if (i > 0)
             result += ", ";
 
-        result += translateExpression(*expr.arguments[i]);
+        if (expr.arguments[i].isRef)
+            result += "ref ";
+        
+        result += translateExpression(*expr.arguments[i].expression);
     }
 
     result += ")";
@@ -407,7 +414,7 @@ std::string CSharpTranslator::translateCallExpr(const CallExpression &expr)
 
 std::string CSharpTranslator::translateConstructorExpr(const ConstructorExpression &expr)
 {
-    std::string result = toPascalCase(expr.type) + "(";
+    std::string result = "new " + translateType(expr.type) + "(";
     int argCount = expr.arguments.size();
 
     // Add arguments
@@ -427,29 +434,29 @@ std::string CSharpTranslator::translateInitListExpr(const InitListExpression &ex
 {
     std::string result;
 
-    if (expr.elementType == "string")
+    result += "new() {";
+    
+    // Add arguments
+    for (int i = 0; i < expr.elements.size(); ++i)
     {
-        result += "{";
-        
-        // Add arguments
-        for (int i = 0; i < expr.elements.size(); ++i)
-        {
-            if (i > 0)
-                result += ", ";
+        if (i > 0)
+            result += ", ";
 
-            result += translateExpression(*expr.elements[i]);
-        }
+        result += translateExpression(*expr.elements[i]);
     }
-
+    
     result += "}";
+
     return result;
 }
 
 std::string CSharpTranslator::translateLiteralExpr(const LiteralExpression &expr)
 {
     std::string result = expr.value;
-    if (expr.type == "string") result = "\"" + result + "\"";
-    else if (expr.type == "nullptr_t") result = "null";
+
+    std::string typeStr = translateType(expr.type);
+
+    if (typeStr == "String") result = "\"" + result + "\"";
     return result;
 }
 
@@ -519,6 +526,14 @@ void CSharpTranslator::writeProjectFiles(const fs::path &outputDir, const std::s
     <!-- Include C# bindings in project -->
     <ItemGroup>
         <Compile Include="../../../../../../generated/csharp/SplashKit.cs" />
+    </ItemGroup>
+
+    <!-- Copy shared resources into test output -->
+    <ItemGroup>
+        <None Include="../../../../../../bin/sounds/**/*">
+            <Link>sounds/%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>
@@ -612,7 +627,7 @@ std::string CSharpTranslator::toPascalCase(const std::string &name)
     return result;
 }
 
-std::string CSharpTranslator::translateType(const std::string &cppType)
+std::string CSharpTranslator::translateType(const Type &cppType)
 {
     // Type map for standard C++ types
     // Mappings from SplashKit Translator: src/translators/csharp.rb
@@ -630,16 +645,37 @@ std::string CSharpTranslator::translateType(const std::string &cppType)
         {"unsigned char", "byte"},
         {"unsigned int", "uint"},
         {"unsigned short", "ushort"},
-        {"nullptr_t", "null"}
+        {"nullptr_t", "null"},
+        {"vector", "List"}
     };
+    
+    std::string result;
 
-    auto it = typeMap.find(cppType);
+    auto it = typeMap.find(cppType.name);
 
-    // If it's a known type, convert it, otherwise convert to PascalCase
+    // If it's a known type, convert it
     if (it != typeMap.end())
-        return it->second; 
-    else if (cppType == "void")
-        return cppType;
+        result += it->second;
+    // If it's void, leave it
+    else if (cppType.name == "void")
+        result += cppType.name;
+    // Otherwise convert to pascal case
     else
-        return toPascalCase(cppType);
+        result += toPascalCase(cppType.name);
+
+    // If there are template arguments, add them
+    const auto &args = cppType.templateArguments;
+    if (!args.empty())
+    {
+        result += "<";
+        for (unsigned i = 0; i < args.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += translateType(args[i]);
+        }
+        result += ">";
+    }
+    
+    return result;
 }
+

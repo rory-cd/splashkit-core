@@ -65,7 +65,7 @@ private:
     std::string toLowerCase(const std::string &name);
     std::string toCamelCase(const std::string &name);
     std::string toPascalCase(const std::string &name);
-    std::string translateType(const std::string &cppType);
+    std::string translateType(const Type &cppType);
 
 public:
     void translateASTSet(

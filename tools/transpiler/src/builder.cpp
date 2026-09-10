@@ -13,6 +13,8 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Stmt.h"
+#include "clang/AST/Type.h"
+#include "clang/AST/TypeLoc.h"
 #include "clang/Basic/OperatorKinds.h"
 
 // Gets the line number of a declaration from the source file
@@ -47,12 +49,15 @@ std::unique_ptr<Expression> ASTBuilder::buildLiteral(const clang::Expr &expr)
     if (auto *literal = llvm::dyn_cast<const clang::StringLiteral>(&expr))
     {
         result->value = literal->getString().str();
-        result->type = "string";                        // This ensures the type isn't "const char[9]" - not useful for translation
+
+        Type stringType;
+        stringType.name = "string";    // This ensures the type isn't "const char[9]" - not useful for translation
+        result->type = stringType;
     }
     else
     {
         result->value = getSourceText(expr);
-        result->type = expr.getType().getAsString();
+        result->type = buildType(expr.getType());
     }
 
     return result;
@@ -88,7 +93,8 @@ std::unique_ptr<Expression> ASTBuilder::buildInitListExpression(const clang::Ini
 
     if (initList.getNumInits() > 0)
     {
-        result->elementType = initList.getInit(0)->IgnoreImplicit()->getType().getAsString();
+        auto initListType = initList.getInit(0)->IgnoreImplicit()->getType();
+        result->elementType = buildType(initListType);
     }
 
     for (unsigned i = 0; i < initList.getNumInits(); i++)
@@ -105,7 +111,7 @@ std::unique_ptr<Expression> ASTBuilder::buildInitListExpression(const clang::Ini
 std::unique_ptr<Expression> ASTBuilder::buildConstructorExpression(const clang::CXXConstructExpr &ctorExpr)
 {
     auto result = std::make_unique<ConstructorExpression>();
-    result->type = ctorExpr.getType().getAsString();
+    result->type = buildType(ctorExpr.getType());
 
     for (unsigned i = 0; i < ctorExpr.getNumArgs(); i++)
     {
@@ -121,10 +127,10 @@ std::unique_ptr<Expression> ASTBuilder::buildConstructorExpression(const clang::
 }
 
 // Build a function call 
-std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(const clang::CallExpr &call, std::string name)
+std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(const clang::CallExpr &call, const clang::FunctionDecl &function)
 {
     auto result = std::make_unique<CallExpression>();
-    result->functionName = name;
+    result->functionName = function.getNameAsString();
 
     unsigned numArgs = call.getNumArgs();
 
@@ -132,7 +138,31 @@ std::unique_ptr<Expression> ASTBuilder::buildFunctionCall(const clang::CallExpr 
     for (int i = 0; i < numArgs; i++)
     {
         auto *currentArg = call.getArg(i);
-        result->arguments.push_back(buildExpression(*currentArg));
+
+        std::cout
+            << "\nARG " << i
+            << "\n  class: " << currentArg->getStmtClassName()
+            << "\n  type:  " << currentArg->getType().getAsString()
+            << "\n";
+
+        Argument argument;
+        
+        argument.expression = buildExpression(*currentArg);
+
+        if (i < function.getNumParams())
+        {
+            // Check parameter
+            const clang::ParmVarDecl *parameter = function.getParamDecl(i);
+
+            // Is it a reference?
+            if (parameter->getType()->isLValueReferenceType() &&
+                !parameter->getType().getNonReferenceType().isConstQualified())
+            {
+                argument.isRef = true;
+            }
+        }
+
+        result->arguments.push_back(std::move(argument));
     }
 
     return result;
@@ -192,6 +222,9 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     // Reference to variable, function, enum, etc.
     else if (auto *ref = llvm::dyn_cast<const clang::DeclRefExpr>(&expr))
     {
+        std::cout << ">>> BUILD REFERENCE: "
+              << ref->getDecl()->getNameAsString()
+              << "\n";
         return buildReference(*ref);
     }
     // Overloaded operators (e.g. someString == "testString") - store as binary expression
@@ -212,7 +245,8 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
         // Function call
         if (auto *funcDecl = call->getDirectCallee())
         {
-            return buildFunctionCall(*call, funcDecl->getNameAsString());
+            std::cout << "CallExpression\n";
+            return buildFunctionCall(*call, *funcDecl);
         }
     }
     // Initialiser list
@@ -239,52 +273,55 @@ std::unique_ptr<Expression> ASTBuilder::buildExpression(const clang::Expr &expr)
     else if (auto *construct = llvm::dyn_cast<clang::CXXConstructExpr>(&expr))
     {
         // Check the target type
-        std::string targetType = construct->getType().getUnqualifiedType().getAsString();
+        Type targetType = buildType(construct->getType());
 
         // If there's one argument and it's the same type as the target (e.g. color(someColor)), unwrap it
+        std::cout
+            << "\n=== CONSTRUCTOR ===\n"
+            << "target name: [" << targetType.name << "]\n"
+            << "target const: " << targetType.isConst << "\n"
+            << "num args: " << construct->getNumArgs() << "\n";
+
         if (construct->getNumArgs() == 1)
         {
-            auto *arg = construct->getArg(0);
-            std::string argType = arg->getType().getUnqualifiedType().getAsString();
+            const clang::Expr *arg = construct->getArg(0)->IgnoreImplicit();
+            // Type argType = buildType(construct->getArg(0)->getType());
 
-            if (targetType == argType)
+            // std::cout
+            //     << "arg name:    [" << argType.name << "]\n"
+            //     << "arg const:   " << argType.isConst << "\n"
+            //     << "arg class:   [" << construct->getArg(0)->getStmtClassName() << "]\n";
+
+
+            // Clang has generated a copy/temporary constructor around
+            // an existing variable reference. Preserve the reference.
+            if (llvm::isa<clang::DeclRefExpr>(arg))
+            {
                 return buildExpression(*arg);
+            }
+
+            // if (targetType.name == argType.name)
+            // {
+            //     std::cout << ">>> MATCH - UNWRAPPING\n";
+            //     return buildExpression(*construct->getArg(0));
+            // }
+
+            std::cout << ">>> NO MATCH\n";
         }
 
         // Constructor is a string - unwrap the literal
-        if (targetType == "string" && construct->getNumArgs() > 0)
+        if ((targetType.name == "string" || targetType.name == "std::string" || targetType.name == "class std::basic_string<char>") && construct->getNumArgs() > 0)
         {
-            // std::cout << "STRINGY\n";
             return buildExpression(*construct->getArg(0));
         }
+
         // Constructor uses list initialisation
-        else if (construct->isListInitialization())
+        if (construct->isListInitialization())
         {
-            // std::cout << "INIT LIST CONSTRUCTION\n";
-
-            // auto *initList = llvm::dyn_cast<clang::InitListExpr>(construct);
-            // return buildInitListExpression(*initList);
-            // if (initList != nullptr) std::cout << "HOORAY!" << "\n";
             return buildExpression(*construct->getArg(0));
         }
-        else
-        {
-            // std::cout << "NORMAL CONSTRUCTION\n";
-            return buildConstructorExpression(*construct);
-        }
-        // ctorDecl->isDefaultConstructor();
-        // ctorDecl->isCopyConstructor();
 
-        // for (unsigned i = 0; i < construct->getNumArgs(); ++i)
-        // {
-        //     const clang::Expr *arg = construct->getArg(i);
-
-        //     std::cout << "CONSTRUCTOR ARG " << i << ": "
-        //             << arg->getStmtClassName() << '\n';
-        // }
-        
-        // Copy constructor
-        
+        return buildConstructorExpression(*construct);
     }
     // Another clang wrapper for memory management - unwrap
     else if (auto *bind = llvm::dyn_cast<clang::CXXBindTemporaryExpr>(&expr))
@@ -314,11 +351,7 @@ VariableDeclaration ASTBuilder::buildVariableDecl(const clang::VarDecl &var)
     // result.line = getLineNumber(var);
     // result.location = getLocationKey(var->getLocation());
 
-    // Split type into more detail
-    clang::QualType type = var.getType();
-    result.type = type.getUnqualifiedType().getAsString();
-    result.isConst = type.isConstQualified();
-    result.isPointer = type->isPointerType();
+    result.type = buildType(var.getType());
 
     // Is it initialised?
     if (var.hasInit())
@@ -335,13 +368,182 @@ Parameter ASTBuilder::buildParameter(const clang::ParmVarDecl &param)
     Parameter result;
 
     result.name = param.getNameAsString();
-    result.type = param.getType().getAsString();
+    result.type = buildType(param.getType());
 
     // Is there a default?
     if (param.hasDefaultArg())
     {
         result.defaultValue = buildExpression(*param.getDefaultArg());
     }
+
+    return result;
+}
+
+// Build a type
+Type ASTBuilder::buildType(const clang::QualType &qualType)
+{
+    Type result;
+    
+    std::cout
+    << "\n=== buildType ===\n"
+    << "original: [" << qualType.getAsString() << "]\n"
+    << "class:    [" << qualType->getTypeClassName() << "]\n";
+
+    result.isConst = qualType.isConstQualified();
+
+    if (qualType->isPointerType())
+    {
+        result.isPointer = true;
+        result.name = qualType.getAsString();
+    }
+    else
+    {
+        result.name = qualType.getAsString();
+
+        if (result.isConst)
+        {
+            result.name = result.name.substr(6);
+        }
+    }
+
+    // Look through ElaboratedType to find the underlying template.
+    clang::QualType underlyingType = qualType;
+
+    if (const auto *elaborated =
+        llvm::dyn_cast<clang::ElaboratedType>(
+            underlyingType.getTypePtr()))
+    {
+        underlyingType = elaborated->getNamedType();
+    }
+    std::cout << "UNDERLYING: ["
+          << underlyingType.getAsString()
+          << "]\n";
+
+    if (const auto *templateType =
+        underlyingType->getAs<clang::TemplateSpecializationType>())
+    {
+        result.name = templateType->getTemplateName()
+            .getAsTemplateDecl()
+            ->getNameAsString();
+        
+        if (result.name == "basic_string") result.name = "string";
+        else
+        {
+            for (const auto &arg : templateType->template_arguments())
+            {
+                clang::QualType argType = arg.getAsType();
+    
+                result.templateArguments.push_back(
+                    buildType(argType)
+                );
+            }
+        };
+
+    }
+
+    std::cout
+        << "ASSIGNED NAME: ["
+        << result.name
+        << "]\n";
+
+    std::cout
+        << "TEMPLATE ARGUMENTS: "
+        << result.templateArguments.size()
+        << "\n";
+    // type = type.getUnqualifiedType();
+
+    // // Unwrap ElaboratedType
+    // if (const auto *elaborated =
+    //     llvm::dyn_cast<clang::ElaboratedType>(type.getTypePtr()))
+    // {
+
+    //     type = elaborated->getNamedType().getUnqualifiedType();
+    // }
+
+    // Typedef
+    // if (const auto *typedefType =
+    //     llvm::dyn_cast<clang::TypedefType>(type.getTypePtr()))
+    // {
+    //     auto *decl = typedefType->getDecl();
+
+    //     // std::cout
+    //     //     << "TYPEDEF FOUND\n"
+    //     //     << "name:      [" << decl->getNameAsString() << "]\n"
+    //     //     << "qualified: [" << decl->getQualifiedNameAsString() << "]\n";
+
+    //     // if (decl->getNameAsString() == "string" &&
+    //     //     decl->getQualifiedNameAsString() == "std::string")
+    //     // {
+    //     //     result.name = "string";
+
+    //     //     std::cout << ">>> RETURNING string\n";
+
+    //     //     return result;
+    //     // }
+
+        
+    //     result.name = decl->getNameAsString();
+    //     // type = typedefType->desugar().getUnqualifiedType();
+    //     return result;
+    // }
+
+    // if (const auto *typedefType =
+    // llvm::dyn_cast<clang::TypedefType>(type.getTypePtr()))
+    // {
+    //     result.name = typedefType->getDecl()->getNameAsString();
+    //     return result;
+    // }
+
+    // Template
+    // if (const auto *templateType =
+    //     llvm::dyn_cast<clang::TemplateSpecializationType>(
+    //         qualType.getTypePtr()))
+    // {
+    //     result.name =
+    //         templateType->getTemplateName()
+    //             .getAsTemplateDecl()
+    //             ->getNameAsString();
+
+    //     std::cout << "TEMPLATE: [" << result.name << "]\n";
+
+    //     for (const auto &arg : templateType->template_arguments())
+    //     {
+    //         if (arg.getKind() == clang::TemplateArgument::Type)
+    //         {
+    //             result.templateArguments.push_back(
+    //                 buildType(arg.getAsType())
+    //             );
+    //         }
+    //     }
+
+    //     std::cout << ">>> RETURNING TEMPLATE: ["
+    //               << result.name << "]\n";
+
+    //     return result;
+    // }
+
+    // Record
+    // if (const auto *record =
+    //     type->getAsCXXRecordDecl())
+    // {
+    //     std::string name =
+    //         record->getQualifiedNameAsString();
+
+    //     std::cout << "RECORD: [" << name << "]\n";
+
+    //     if (name == "std::basic_string")
+    //     {
+    //         result.name = "string";
+
+    //         std::cout << ">>> RETURNING string FROM RECORD\n";
+
+    //         return result;
+    //     }
+    // }
+
+    // result.name = type.getAsString();
+
+    // result.name = qualType.getAsString();
 
     return result;
 }
@@ -356,7 +558,7 @@ FunctionDeclaration ASTBuilder::buildFunctionDecl(const clang::FunctionDecl &fn,
     result.name = fn.getNameAsString();
     // result.line = getLineNumber(fn);
     // result.location = getLocationKey(fn->getLocation());
-    result.returnType = fn.getReturnType().getAsString();
+    result.returnType = buildType(fn.getReturnType());
     result.isGlobal = isGlobal;
 
     // Get params
@@ -513,6 +715,7 @@ VariableDeclarationStatement ASTBuilder::buildVariableDeclStmt(const clang::VarD
 
 std::vector<std::shared_ptr<Statement>> ASTBuilder::buildStatements(const clang::Stmt &stmt)
 {
+    std::cout << "\nSTATEMENT ============================================================" << std::endl;
     std::vector<std::shared_ptr<Statement>> result;
     // Start by checking for macros
     // Get the key for this location
@@ -634,6 +837,7 @@ TestCase ASTBuilder::buildTestCase(
     const clang::FunctionDecl &func,
     const MacroInfo &macroInfo)
 {
+    std::cout << "######## NEW buildType ########\n";
     TestCase result;
 
     // Utilise macro info obtained by the preprocessor

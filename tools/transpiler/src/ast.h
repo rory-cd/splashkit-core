@@ -4,6 +4,24 @@
 
 using json = nlohmann::json;
 
+struct Type
+{
+    std::string name;
+    bool isConst = false;
+    bool isPointer = false;
+    std::vector<Type> templateArguments;    // e.g. SomeType<TypeA, TypeB>
+
+    bool operator==(const Type& other) const
+    {
+        return name == other.name &&
+            isConst == other.isConst &&
+            isPointer == other.isPointer &&
+            templateArguments == other.templateArguments;
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Type, name, isConst, isPointer, templateArguments)
+};
+
 struct Expression
 {
     virtual ~Expression() = default;            // Explicit destructor for safety (pointers in derived classes)
@@ -26,10 +44,18 @@ inline void to_json(json &j, const std::unique_ptr<Expression> &e)
 struct LiteralExpression : Expression
 {
     std::string value;
-    std::string type;
+    Type type;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(LiteralExpression, value, type)
     // Convert the current object (the derived type) to json, and assign a "kind"
     void serialise(json &j) const override { j = *this; j["kind"] = "LiteralExpression"; }
+};
+
+struct Argument
+{
+    std::unique_ptr<Expression> expression;
+    bool isRef = false;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Argument, expression, isRef)
 };
 
 enum class ReferenceKind
@@ -49,7 +75,7 @@ struct ReferenceExpression : Expression
 
 struct ConstructorExpression : Expression
 {
-    std::string type;
+    Type type;
     std::vector<std::unique_ptr<Expression>> arguments;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(ConstructorExpression, type, arguments)
     void serialise(json &j) const override { j = *this; j["kind"] = "ConstructorExpression"; }
@@ -57,7 +83,7 @@ struct ConstructorExpression : Expression
 
 struct InitListExpression : Expression
 {
-    std::string elementType;
+    Type elementType;
     std::vector<std::unique_ptr<Expression>> elements;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(InitListExpression, elements, elementType)
     void serialise(json &j) const override { j = *this; j["kind"] = "InitListExpression"; }
@@ -66,7 +92,7 @@ struct InitListExpression : Expression
 struct CallExpression : Expression
 {
     std::string functionName;
-    std::vector<std::unique_ptr<Expression>> arguments;
+    std::vector<Argument> arguments;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(CallExpression, functionName, arguments)
     void serialise(json &j) const override { j = *this; j["kind"] = "CallExpression"; }
 };
@@ -91,17 +117,15 @@ struct UnaryExpression : Expression
 struct VariableDeclaration
 {
     std::string name;
-    std::string type;
-    bool isConst;
-    bool isPointer = false;
+    Type type;
     std::unique_ptr<Expression> initializer;
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, type, isConst, isPointer, initializer)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(VariableDeclaration, name, type, initializer)
 };
 
 struct Parameter
 {
     std::string name;
-    std::string type;
+    Type type;
     std::unique_ptr<Expression> defaultValue;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(Parameter, name, type, defaultValue)
 };
@@ -130,7 +154,7 @@ struct FunctionDeclaration
     std::string name;
     std::vector<Parameter> parameters;
     std::vector<std::shared_ptr<Statement>> body;
-    std::string returnType;
+    Type returnType;
     bool isGlobal;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_ONLY_SERIALIZE(FunctionDeclaration, name, parameters, body, returnType, isGlobal)
 };
